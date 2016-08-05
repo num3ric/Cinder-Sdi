@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<cinder>
+<block
+	name="Cinder-Sdi"
+	id="org.libcinder.sdi"
+	author="Eric Renaud-Houde"
+	license="Simplified BSD"
+	summary="Blackmagic DeckLink Input wrapper"
+	url="https://github.com/num3ric/Cinder-Sdi"
+	git="git://github.com:num3ric/Cinder-Sdi.git"
+	>
+	<supports os="msw"/>
+	<includePath>include</includePath>
+	<sourcePattern>src/*.cpp</sourcePattern>
+	<sourcePattern>src/*.c</sourcePattern>
+	<headerPattern>include/*.h</headerPattern>
+</block>
+</cinder>

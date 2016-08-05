@@ -12,8 +12,8 @@ using namespace ci;
 using namespace ci::app;
 using namespace std;
 
-class BlackmagicApp : public App {
-  public:
+class BasicCaptureApp : public App {
+public:
 	void setup() override;
 	void mouseDown( MouseEvent event ) override;
 	void update() override;
@@ -25,7 +25,7 @@ class BlackmagicApp : public App {
 	gl::TextureRef		mTexture;
 };
 
-void BlackmagicApp::setup()
+void BasicCaptureApp::setup()
 {
 	try {
 		mDecklink = std::unique_ptr<DeckLinkDevice>( new DeckLinkDevice{ DeckLinkManager::getDevice( 0 ) } );
@@ -44,20 +44,20 @@ void BlackmagicApp::setup()
 	gl::enableAlphaBlending();
 }
 
-void BlackmagicApp::mouseDown( MouseEvent event )
+void BasicCaptureApp::mouseDown( MouseEvent event )
 {
 }
 
-void BlackmagicApp::update()
+void BasicCaptureApp::update()
 {
-	if( ! mDecklink )
+	if( !mDecklink )
 		return;
 
 	//mDecklink->getSurface( mSurface );
 	mDecklink->getTexture( mTexture );
 }
 
-void BlackmagicApp::draw()
+void BasicCaptureApp::draw()
 {
 	gl::clear();
 
@@ -68,7 +68,7 @@ void BlackmagicApp::draw()
 		gl::ScopedTextureBind tex0( mTexture, 0 );
 
 		gl::setMatricesWindow( app::getWindowSize() );
-		gl::drawSolidRect( app::getWindowBounds() );		
+		gl::drawSolidRect( app::getWindowBounds() );
 	}
 
 	if( mSurface ) {
@@ -76,7 +76,7 @@ void BlackmagicApp::draw()
 	}
 }
 
-void BlackmagicApp::cleanup()
+void BasicCaptureApp::cleanup()
 {
 
 }
@@ -87,4 +87,4 @@ void prepareSettings( App::Settings* settings )
 	settings->setWindowSize( 0.5 * 1920, 0.5 * 1080 );
 }
 
-CINDER_APP( BlackmagicApp, RendererGl, prepareSettings )
+CINDER_APP( BasicCaptureApp, RendererGl, prepareSettings )
