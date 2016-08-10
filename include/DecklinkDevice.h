@@ -86,7 +86,9 @@ public:
 	void						stop();
 
 	bool						getTexture( ci::gl::Texture2dRef& texture );
-	bool						getSurface( ci::SurfaceRef& surface );
+
+	bool						acquireSurface( ci::SurfaceRef& surface );
+	void						releaseSurface();
 private:
 	class VideoFrame : public IDeckLinkVideoFrame {
 	public:
@@ -134,6 +136,7 @@ private:
 	IDeckLinkInput *					mDecklinkInput;
 	std::vector<IDeckLinkDisplayMode*>	mModesList;
 
+	mutable std::unique_lock<std::mutex> mLock;
 	mutable std::mutex					mMutex;
 	std::atomic_bool					mNewFrame;
 
@@ -142,7 +145,7 @@ private:
 
 	glm::ivec2							mSize;
 	std::atomic_bool					mReadSurface;
-	std::unique_ptr<VideoFrame>			mRGBAFrame;
+	ci::SurfaceRef						mSurface;
 	std::vector<uint16_t>				mBuffer;	
 };
 

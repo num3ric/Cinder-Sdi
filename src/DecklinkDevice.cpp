@@ -130,6 +130,8 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 , mSize()
 , mNewFrame{ false }
 , mReadSurface{ false }
+, mSurface{ nullptr }
+, mLock{ mMutex, std::defer_lock }
 {
 	mDecklink->AddRef();
 
@@ -392,10 +394,12 @@ HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame,
 		std::memcpy( mBuffer.data(), data, mBuffer.size() );
 
 		if( mReadSurface ) {
-			if( ! mRGBAFrame ) {
-				mRGBAFrame = std::unique_ptr<VideoFrame>( new VideoFrame{ frame->GetWidth(), frame->GetHeight() } );
+			VideoFrame videoFrame{ frame->GetWidth(), frame->GetHeight() };
+			DeckLinkManager::getConverter()->ConvertFrame( frame, &videoFrame );
+			if( mSurface == nullptr || mSurface->getWidth() != frame->GetWidth() || mSurface->getHeight() != frame->GetHeight() ) {
+				mSurface = ci::Surface8u::create( frame->GetWidth(), frame->GetHeight(), true, ci::SurfaceChannelOrder::ARGB );
 			}
-			DeckLinkManager::getConverter()->ConvertFrame( frame, mRGBAFrame.get() );
+			std::memcpy( mSurface->getData(), videoFrame.data(), videoFrame.GetRowBytes() * videoFrame.GetHeight() );
 		}
 
 		mNewFrame = true;
@@ -441,18 +445,21 @@ bool DeckLinkDevice::getTexture( ci::gl::Texture2dRef& texture )
 	return true;
 }
 
-bool DeckLinkDevice::getSurface( ci::SurfaceRef& surface )
+bool DeckLinkDevice::acquireSurface( ci::SurfaceRef& surface )
 {
 	mReadSurface = true;
-
-	if( ! mNewFrame || mRGBAFrame == nullptr )
+	if( ! mNewFrame )
 		return false;
 
 	mNewFrame = false;
-
-	std::lock_guard<std::mutex> lock( mMutex );
-	surface = ci::Surface::create( mRGBAFrame->data(), mRGBAFrame->GetWidth(), mRGBAFrame->GetHeight(), mRGBAFrame->GetRowBytes(), ci::SurfaceChannelOrder::ARGB );
+	mLock.lock();
+	surface = mSurface;
 	return true;
 }
 
-
+void DeckLinkDevice::releaseSurface()
+{
+	if( mLock.owns_lock() ) {
+		mLock.unlock();
+	}
+}

@@ -53,8 +53,8 @@ void BasicCaptureApp::update()
 	if( !mDecklink )
 		return;
 
-	//mDecklink->getSurface( mSurface );
-	mDecklink->getTexture( mTexture );
+	mDecklink->acquireSurface( mSurface );
+	//mDecklink->getTexture( mTexture );
 }
 
 void BasicCaptureApp::draw()
@@ -73,6 +73,7 @@ void BasicCaptureApp::draw()
 
 	if( mSurface ) {
 		gl::draw( gl::Texture2d::create( *mSurface ) );
+		mDecklink->releaseSurface();
 	}
 }
 
