@@ -101,6 +101,7 @@ public:
 	bool						start( BMDDisplayMode videoMode );
 	bool						start( int videoModeIndex );
 	void						stop();
+	void						cleanup();
 
 	Timecodes					getTimecode() const;
 	bool						getTexture( ci::gl::Texture2dRef& texture );
@@ -138,7 +139,6 @@ private:
 		std::vector<uint8_t> mData;
 	};
 
-	void						cleanup();
 	void						getAncillaryDataFromFrame( IDeckLinkVideoInputFrame* frame, BMDTimecodeFormat format, std::string& timecodeString, std::string& userBitsString );
 
 	virtual HRESULT				VideoInputFormatChanged( BMDVideoInputFormatChangedEvents notificationEvents, IDeckLinkDisplayMode *newDisplayMode, BMDDetectedVideoInputFormatFlags detectedSignalFlags ) override;

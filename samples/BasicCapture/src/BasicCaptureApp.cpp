@@ -30,7 +30,7 @@ void BasicCaptureApp::setup()
 {
 	//FIXME: debugging deallocation. This seems to work, but not on cleanup?
 	getWindow()->getSignalClose().connect( [this] {
-		mDecklink.reset( nullptr );
+		mDecklink->cleanup();
 		DeckLinkManager::cleanup();
 	} );
 

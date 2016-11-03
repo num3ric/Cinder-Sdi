@@ -181,9 +181,7 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 DeckLinkDevice::~DeckLinkDevice()
 {
 	stop();
-	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
 	cleanup();
-	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
 }
 
 void DeckLinkDevice::cleanup()
