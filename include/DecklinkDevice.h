@@ -47,6 +47,7 @@
 class DeckLinkManager : public ci::Noncopyable {
 public:
 	static DeckLinkManager& instance();
+	static void cleanup();
 
 	static IDeckLink*					getDevice( size_t index );
 	static std::vector<IDeckLink*>		getDevices() { return instance().mDevices; }
@@ -86,9 +87,7 @@ public:
 	void						stop();
 
 	bool						getTexture( ci::gl::Texture2dRef& texture );
-
-	bool						acquireSurface( ci::SurfaceRef& surface );
-	void						releaseSurface();
+	bool						getSurface( ci::SurfaceRef& surface );
 private:
 	class VideoFrame : public IDeckLinkVideoFrame {
 	public:
@@ -136,15 +135,14 @@ private:
 	IDeckLinkInput *					mDecklinkInput;
 	std::vector<IDeckLinkDisplayMode*>	mModesList;
 
-	mutable std::unique_lock<std::mutex> mLock;
 	mutable std::mutex					mMutex;
 	std::atomic_bool					mNewFrame;
-
-	bool								mSupportsFormatDetection;
-	bool								mCurrentlyCapturing;
-
-	glm::ivec2							mSize;
 	std::atomic_bool					mReadSurface;
+
+	std::atomic_bool					mCurrentlyCapturing;
+	bool								mSupportsFormatDetection;
+	
+	glm::ivec2							mSize;
 	ci::SurfaceRef						mSurface;
 	std::vector<uint16_t>				mBuffer;	
 };

@@ -1,5 +1,3 @@
-
-#include "stdafx.h"
 #include "cinder/app/App.h"
 #include "cinder/Log.h"
 
@@ -21,25 +19,33 @@ DeckLinkManager& DeckLinkManager::instance()
 	std::call_once( mOnceFlag,
 		[] {
 		mInstance.reset( new DeckLinkManager{} );
-	} );
+	});
 
 	return *mInstance;
 }
 
-DeckLinkManager::DeckLinkManager()
-	: mVideoConverter{ nullptr }
+void DeckLinkManager::cleanup()
 {
-	IDeckLinkIterator* deckLinkIterator = nullptr;
-	IDeckLink* deckLink = nullptr;
+	for( auto& device : instance().mDevices ) {
+		device->Release();
+		device = NULL;
+	}
+}
+
+DeckLinkManager::DeckLinkManager()
+	: mVideoConverter{ NULL }
+{
+	IDeckLinkIterator* deckLinkIterator = NULL;
+	IDeckLink* deckLink = NULL;
 
 	if( CoCreateInstance( CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void**)&deckLinkIterator ) != S_OK ) {
-		deckLinkIterator = nullptr;
+		deckLinkIterator = NULL;
 		throw DecklinkExc{ "Please install the Blackmagic Desktop Video drivers to use the features of this application." };
 	}
 
 	if( CoCreateInstance( CLSID_CDeckLinkVideoConversion, NULL, CLSCTX_ALL, IID_IDeckLinkVideoConversion, (void**)&mVideoConverter ) != S_OK ) {
 		throw DecklinkExc{ "Failed to create the decklink video converter." };
-		mVideoConverter = nullptr;
+		mVideoConverter = NULL;
 	}
 
 	while( deckLinkIterator->Next( &deckLink ) == S_OK ) {
@@ -86,12 +92,6 @@ DeckLinkManager::DeckLinkManager()
 	catch( ci::gl::GlslProgCompileExc & exc ) {
 		CI_LOG_EXCEPTION( "", exc );
 	}
-
-	ci::app::getWindow()->getSignalClose().connect( [this]() {
-		for( auto& device : instance().mDevices ) {
-			device->Release();
-		}
-	} );
 }
 
 IDeckLink* DeckLinkManager::getDevice( size_t index )
@@ -111,7 +111,7 @@ std::vector<std::string> DeckLinkManager::getDeviceNames()
 		BSTR cfStrName;
 		// Get the name of this device
 		if( device->GetDisplayName( &cfStrName ) == S_OK ) {
-			assert( cfStrName != nullptr );
+			assert( cfStrName != NULL );
 			std::wstring ws( cfStrName, SysStringLen( cfStrName ) );
 			names.push_back( ws2s( ws ) );
 		}
@@ -124,25 +124,24 @@ std::vector<std::string> DeckLinkManager::getDeviceNames()
 
 DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 : mDecklink( device )
-, mDecklinkInput( nullptr )
+, mDecklinkInput( NULL )
 , mSupportsFormatDetection( 0 )
 , mCurrentlyCapturing( false )
 , mSize()
 , mNewFrame{ false }
 , mReadSurface{ false }
 , mSurface{ nullptr }
-, mLock{ mMutex, std::defer_lock }
 {
 	mDecklink->AddRef();
 
-	IDeckLinkAttributes* deckLinkAttributes = nullptr;
-	IDeckLinkDisplayModeIterator* displayModeIterator = nullptr;
-	IDeckLinkDisplayMode* displayMode = nullptr;
+	IDeckLinkAttributes* deckLinkAttributes = NULL;
+	IDeckLinkDisplayModeIterator* displayModeIterator = NULL;
+	IDeckLinkDisplayMode* displayMode = NULL;
 	bool result = false;
 
 	// A new device has been selected.
 	// Release the previous selected device and mode list
-	if( mDecklinkInput != nullptr ) {
+	if( mDecklinkInput != NULL ) {
 		mDecklinkInput->Release();
 	}
 
@@ -154,7 +153,7 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 
 	// Get the IDeckLinkInput for the selected device
 	if( mDecklink->QueryInterface( IID_IDeckLinkInput, (void**)&mDecklinkInput ) != S_OK ) {
-		mDecklinkInput = nullptr;
+		mDecklinkInput = NULL;
 		throw DecklinkExc{ "This application was unable to obtain IDeckLinkInput for the selected device." };
 	}
 
@@ -177,28 +176,24 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 
 		deckLinkAttributes->Release();
 	}
-
-	ci::app::getWindow()->getSignalClose().connect( [this]() {
-		stop();
-		cleanup();
-	} );
 }
 
 DeckLinkDevice::~DeckLinkDevice()
 {
+	stop();
 	cleanup();
 }
 
 void DeckLinkDevice::cleanup()
 {
-	if( mDecklinkInput != nullptr ) {
+	if( mDecklinkInput != NULL ) {
 		mDecklinkInput->Release();
-		mDecklinkInput = nullptr;
+		mDecklinkInput = NULL;
 	}
 
-	if( mDecklink != nullptr ) {
+	if( mDecklink != NULL ) {
 		mDecklink->Release();
-		mDecklink = nullptr;
+		mDecklink = NULL;
 	}
 }
 
@@ -209,7 +204,7 @@ std::vector<std::string> DeckLinkDevice::getDisplayModeNames() {
 
 	for( modeIndex = 0; modeIndex < mModesList.size(); modeIndex++ ) {
 		if( mModesList[modeIndex]->GetName( &modeName ) == S_OK ) {
-			assert( modeName != nullptr );
+			assert( modeName != NULL );
 			std::wstring ws( modeName, SysStringLen( modeName ) );
 			modeNames.push_back( ws2s( ws ) );
 		}
@@ -326,9 +321,8 @@ void DeckLinkDevice::stop()
 	if( ! mCurrentlyCapturing )
 		return;
 
-	if( mDecklinkInput != nullptr ) {
+	if( mDecklinkInput != NULL ) {
 		mDecklinkInput->StopStreams();
-		mDecklinkInput->SetScreenPreviewCallback( NULL );
 		mDecklinkInput->SetCallback( NULL );
 	}
 
@@ -373,6 +367,9 @@ typedef struct {
 
 HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame, IDeckLinkAudioInputPacket* audioPacket )
 {
+	if( frame == NULL )
+		return S_OK;
+
 	if( ( frame->GetFlags() & bmdFrameHasNoInputSource ) == 0 ) {
 		// Get the various timecodes and userbits for this frame
 		AncillaryDataStruct ancillaryData;
@@ -409,14 +406,14 @@ HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame,
 }
 
 void DeckLinkDevice::getAncillaryDataFromFrame( IDeckLinkVideoInputFrame* videoFrame, BMDTimecodeFormat timecodeFormat, std::string& timecodeString, std::string& userBitsString ) {
-	IDeckLinkTimecode* timecode = nullptr;
+	IDeckLinkTimecode* timecode = NULL;
 	BSTR timecodeCFString;
 	BMDTimecodeUserBits userBits = 0;
 
-	if( (videoFrame != nullptr)
+	if( (videoFrame != NULL)
 		&& (videoFrame->GetTimecode( timecodeFormat, &timecode ) == S_OK) ) {
 		if( timecode->GetString( &timecodeCFString ) == S_OK ) {
-			assert( timecodeCFString != nullptr );
+			assert( timecodeCFString != NULL );
 			timecodeString = ws2s( std::wstring( timecodeCFString, SysStringLen( timecodeCFString ) ) );
 		}
 		else {
@@ -424,7 +421,7 @@ void DeckLinkDevice::getAncillaryDataFromFrame( IDeckLinkVideoInputFrame* videoF
 		}
 
 		timecode->GetTimecodeUserBits( &userBits );
-		//userBitsString = "0x" +  userBits ;
+		userBitsString = "0x" + userBits ;
 		timecode->Release();
 	}
 	else {
@@ -442,24 +439,24 @@ bool DeckLinkDevice::getTexture( ci::gl::Texture2dRef& texture )
 
 	std::lock_guard<std::mutex> lock( mMutex );
 	texture = ci::gl::Texture2d::create( mBuffer.data(), GL_BGRA, mSize.x/2, mSize.y, ci::gl::Texture::Format().internalFormat( GL_RGBA ).dataType( GL_UNSIGNED_INT_8_8_8_8_REV ) );
+	
 	return true;
 }
 
-bool DeckLinkDevice::acquireSurface( ci::SurfaceRef& surface )
+bool DeckLinkDevice::getSurface( ci::SurfaceRef& surface )
 {
 	mReadSurface = true;
-	if( ! mNewFrame )
+	if( ! mNewFrame || mSurface == nullptr )
 		return false;
 
-	mNewFrame = false;
-	mLock.lock();
-	surface = mSurface;
-	return true;
-}
-
-void DeckLinkDevice::releaseSurface()
-{
-	if( mLock.owns_lock() ) {
-		mLock.unlock();
+	std::lock_guard<std::mutex> lock( mMutex );
+	if( surface && surface->getSize() == mSurface->getSize() ) {
+		surface->copyFrom( *mSurface, mSurface->getBounds() );
 	}
+	else {
+		surface = ci::Surface8u::create( *mSurface );
+	}
+	
+
+	return true;
 }

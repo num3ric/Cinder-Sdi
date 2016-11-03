@@ -50,10 +50,11 @@
       <PreprocessorDefinitions>WIN32;_WIN32_WINNT=0x0601;_WINDOWS;NOMINMAX;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PrecompiledHeader />
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeaderFile />
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>"..\..\..\..\..\include";..\include</AdditionalIncludeDirectories>
@@ -73,10 +74,11 @@
       <AdditionalIncludeDirectories>..\include;"..\..\..\..\..\include";..\..\..\include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32_WINNT=0x0601;_WINDOWS;NOMINMAX;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PrecompiledHeader />
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeaderFile />
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -104,15 +106,14 @@
   <ItemGroup>
     <ClCompile Include="..\src\BasicCaptureApp.cpp" />
     <ClCompile Include="..\..\..\src\DecklinkDevice.cpp" />
-    <ClCompile Include="..\..\..\src\stdafx.cpp" />
     <ClCompile Include="..\..\..\src\DeckLinkAPI_i.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\include\stdafx.h" />
     <ClInclude Include="..\include\Resources.h" />
     <ClInclude Include="..\..\..\include\DeckLinkAPI_h.h" />
     <ClInclude Include="..\..\..\include\DeckLinkAPIVersion.h" />
     <ClInclude Include="..\..\..\include\DecklinkDevice.h" />
-    <ClInclude Include="..\..\..\include\stdafx.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

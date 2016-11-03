@@ -1,5 +1,5 @@
+//FIXME: Remove the necessity to include this first!
 #include "stdafx.h"
-#include <stdint.h>
 
 #include "cinder/app/App.h"
 #include "cinder/app/RendererGl.h"
@@ -15,6 +15,7 @@ using namespace std;
 class BasicCaptureApp : public App {
 public:
 	void setup() override;
+	void keyDown( KeyEvent event ) override;
 	void mouseDown( MouseEvent event ) override;
 	void update() override;
 	void draw() override;
@@ -27,6 +28,12 @@ public:
 
 void BasicCaptureApp::setup()
 {
+	//FIXME: debugging deallocation. This seems to work, but not on cleanup?
+	getWindow()->getSignalClose().connect( [this] {
+		mDecklink.reset( nullptr );
+		DeckLinkManager::cleanup();
+	} );
+
 	try {
 		mDecklink = std::unique_ptr<DeckLinkDevice>( new DeckLinkDevice{ DeckLinkManager::getDevice( 0 ) } );
 		std::stringstream ss;
@@ -44,16 +51,12 @@ void BasicCaptureApp::setup()
 	gl::enableAlphaBlending();
 }
 
-void BasicCaptureApp::mouseDown( MouseEvent event )
-{
-}
-
 void BasicCaptureApp::update()
 {
 	if( !mDecklink )
 		return;
 
-	mDecklink->acquireSurface( mSurface );
+	mDecklink->getSurface( mSurface );
 	//mDecklink->getTexture( mTexture );
 }
 
@@ -72,14 +75,27 @@ void BasicCaptureApp::draw()
 	}
 
 	if( mSurface ) {
-		gl::draw( gl::Texture2d::create( *mSurface ) );
-		mDecklink->releaseSurface();
+		gl::draw( gl::Texture2d::create( *mSurface ), app::getWindowBounds() );
 	}
 }
 
 void BasicCaptureApp::cleanup()
 {
+}
 
+
+void BasicCaptureApp::keyDown( KeyEvent event )
+{
+	//if( event.getCode() == KeyEvent::KEY_1 ) {
+	//	mDecklink->start( BMDDisplayMode::bmdModeHD1080p30 );
+	//}
+	//else if( event.getCode() == KeyEvent::KEY_2 ) {
+	//	mDecklink->stop();
+	//}
+}
+
+void BasicCaptureApp::mouseDown( MouseEvent event )
+{
 }
 
 void prepareSettings( App::Settings* settings )

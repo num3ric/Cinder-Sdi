@@ -39,9 +39,6 @@
     <ClCompile Include="..\..\..\src\DecklinkDevice.cpp">
       <Filter>Blocks\Cinder-Sdi\src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\stdafx.cpp">
-      <Filter>Blocks\Cinder-Sdi\src</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\DeckLinkAPI_i.c">
       <Filter>Blocks\Cinder-Sdi\src</Filter>
     </ClCompile>
@@ -54,13 +51,13 @@
     <ClInclude Include="..\..\..\include\DecklinkDevice.h">
       <Filter>Blocks\Cinder-Sdi\include</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\stdafx.h">
-      <Filter>Blocks\Cinder-Sdi\include</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\Resources.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\stdafx.h">
+      <Filter>Blocks\Cinder-Sdi\include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
