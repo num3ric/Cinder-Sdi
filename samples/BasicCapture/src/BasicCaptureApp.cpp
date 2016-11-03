@@ -28,12 +28,6 @@ public:
 
 void BasicCaptureApp::setup()
 {
-	//FIXME: debugging deallocation. This seems to work, but not on cleanup?
-	getWindow()->getSignalClose().connect( [this] {
-		mDecklink->cleanup();
-		DeckLinkManager::cleanup();
-	} );
-
 	try {
 		mDecklink = std::unique_ptr<DeckLinkDevice>( new DeckLinkDevice{ DeckLinkManager::getDevice( 0 ) } );
 		std::stringstream ss;
@@ -49,6 +43,12 @@ void BasicCaptureApp::setup()
 	}
 
 	gl::enableAlphaBlending();
+
+	//FIXME: debugging deallocation. This seems to work, but not on cleanup?
+	getWindow()->getSignalClose().connect( [this] {
+		if( mDecklink ) mDecklink->cleanup();
+		DeckLinkManager::cleanup();
+	} );
 }
 
 void BasicCaptureApp::update()
