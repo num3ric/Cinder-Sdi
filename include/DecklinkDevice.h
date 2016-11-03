@@ -74,6 +74,22 @@ private:
 
 class DeckLinkDevice : private IDeckLinkInputCallback, public ci::Noncopyable {
 public:
+	typedef struct {
+		// VITC timecodes and user bits for field 1 & 2
+		std::string vitcF1Timecode;
+		std::string vitcF1UserBits;
+		std::string vitcF2Timecode;
+		std::string vitcF2UserBits;
+
+		// RP188 timecodes and user bits (VITC1, VITC2 and LTC)
+		std::string rp188vitc1Timecode;
+		std::string rp188vitc1UserBits;
+		std::string rp188vitc2Timecode;
+		std::string rp188vitc2UserBits;
+		std::string rp188ltcTimecode;
+		std::string rp188ltcUserBits;
+	} Timecodes;
+
 	DeckLinkDevice( IDeckLink * device );
 	virtual ~DeckLinkDevice();
 
@@ -86,6 +102,7 @@ public:
 	bool						start( int videoModeIndex );
 	void						stop();
 
+	Timecodes					getTimecode() const;
 	bool						getTexture( ci::gl::Texture2dRef& texture );
 	bool						getSurface( ci::SurfaceRef& surface );
 private:
@@ -144,7 +161,9 @@ private:
 	
 	glm::ivec2							mSize;
 	ci::SurfaceRef						mSurface;
-	std::vector<uint16_t>				mBuffer;	
+	std::vector<uint16_t>				mBuffer;
+
+	Timecodes							mTimecode;
 };
 
 

@@ -181,7 +181,9 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 DeckLinkDevice::~DeckLinkDevice()
 {
 	stop();
+	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
 	cleanup();
+	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
 }
 
 void DeckLinkDevice::cleanup()
@@ -349,40 +351,22 @@ HRESULT DeckLinkDevice::VideoInputFormatChanged(/* in */ BMDVideoInputFormatChan
 	return S_OK;
 }
 
-typedef struct {
-	// VITC timecodes and user bits for field 1 & 2
-	std::string vitcF1Timecode;
-	std::string vitcF1UserBits;
-	std::string vitcF2Timecode;
-	std::string vitcF2UserBits;
-
-	// RP188 timecodes and user bits (VITC1, VITC2 and LTC)
-	std::string rp188vitc1Timecode;
-	std::string rp188vitc1UserBits;
-	std::string rp188vitc2Timecode;
-	std::string rp188vitc2UserBits;
-	std::string rp188ltcTimecode;
-	std::string rp188ltcUserBits;
-} AncillaryDataStruct;
-
 HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame, IDeckLinkAudioInputPacket* audioPacket )
 {
 	if( frame == NULL )
 		return S_OK;
 
 	if( ( frame->GetFlags() & bmdFrameHasNoInputSource ) == 0 ) {
-		// Get the various timecodes and userbits for this frame
-		AncillaryDataStruct ancillaryData;
-		getAncillaryDataFromFrame( frame, bmdTimecodeVITC, ancillaryData.vitcF1Timecode, ancillaryData.vitcF1UserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeVITCField2, ancillaryData.vitcF2Timecode, ancillaryData.vitcF2UserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeRP188VITC1, ancillaryData.rp188vitc1Timecode, ancillaryData.rp188vitc1UserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeRP188LTC, ancillaryData.rp188ltcTimecode, ancillaryData.rp188ltcUserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeRP188VITC2, ancillaryData.rp188vitc2Timecode, ancillaryData.rp188vitc2UserBits );
-
 		auto x = static_cast<int32_t>(frame->GetWidth());
 		auto y = static_cast<int32_t>(frame->GetHeight());
-
 		std::lock_guard<std::mutex> lock( mMutex );
+
+		// Get the various timecodes and userbits for this frame
+		getAncillaryDataFromFrame( frame, bmdTimecodeVITC, mTimecode.vitcF1Timecode, mTimecode.vitcF1UserBits );
+		getAncillaryDataFromFrame( frame, bmdTimecodeVITCField2, mTimecode.vitcF2Timecode, mTimecode.vitcF2UserBits );
+		getAncillaryDataFromFrame( frame, bmdTimecodeRP188VITC1, mTimecode.rp188vitc1Timecode, mTimecode.rp188vitc1UserBits );
+		getAncillaryDataFromFrame( frame, bmdTimecodeRP188LTC, mTimecode.rp188ltcTimecode, mTimecode.rp188ltcUserBits );
+		getAncillaryDataFromFrame( frame, bmdTimecodeRP188VITC2, mTimecode.rp188vitc2Timecode, mTimecode.rp188vitc2UserBits );
 
 		mSize = glm::ivec2( x, y );
 		mBuffer.resize( frame->GetRowBytes() * frame->GetHeight() );
@@ -428,6 +412,12 @@ void DeckLinkDevice::getAncillaryDataFromFrame( IDeckLinkVideoInputFrame* videoF
 		timecodeString = "";
 		userBitsString = "";
 	}
+}
+
+DeckLinkDevice::Timecodes DeckLinkDevice::getTimecode() const
+{
+	std::lock_guard<std::mutex> lock( mMutex );
+	return mTimecode;
 }
 
 bool DeckLinkDevice::getTexture( ci::gl::Texture2dRef& texture )
