@@ -226,6 +226,50 @@ bool DeckLinkDevice::isCapturing()
 	return mCurrentlyCapturing;
 }
 
+inline std::string getDisplayModeString( BMDDisplayMode mode )
+{
+	switch( mode ) {
+	case bmdModeNTSC:			return "Mode NTSC";
+	case bmdModeNTSC2398:		return "Mode NTSC2398";
+	case bmdModePAL:			return "Mode PAL";
+	case bmdModeNTSCp:			return "Mode NTSCp";
+	case bmdModePALp:			return "Mode PALp";
+	case bmdModeHD1080p2398:	return "Mode HD1080p2398";
+	case bmdModeHD1080p24:		return "Mode HD1080p24";
+	case bmdModeHD1080p25:		return "Mode HD1080p25";
+	case bmdModeHD1080p2997:	return "Mode HD1080p2997";
+	case bmdModeHD1080p30:		return "Mode HD1080p30";
+	case bmdModeHD1080i50:		return "Mode HD1080i50";
+	case bmdModeHD1080i5994:	return "Mode HD1080i5994";
+	case bmdModeHD1080i6000:	return "Mode HD1080i6000";
+	case bmdModeHD1080p50:		return "Mode HD1080p50";
+	case bmdModeHD1080p5994:	return "Mode HD1080p5994";
+	case bmdModeHD1080p6000:	return "Mode HD1080p6000";
+	case bmdModeHD720p50:		return "Mode HD720p50";
+	case bmdModeHD720p5994:		return "Mode HD720p5994";
+	case bmdModeHD720p60:		return "Mode HD720p60";
+	case bmdMode2k2398:			return "Mode 2k2398";
+	case bmdMode2k24:			return "Mode 2k24";
+	case bmdMode2k25:			return "Mode 2k25";
+	case bmdMode2kDCI2398:		return "Mode 2kDCI2398";
+	case bmdMode2kDCI24:		return "Mode 2kDCI24";
+	case bmdMode2kDCI25:		return "Mode 2kDCI25";
+	case bmdMode4K2160p2398:	return "Mode 4K2160p2398";
+	case bmdMode4K2160p24:		return "Mode 4K2160p24";
+	case bmdMode4K2160p25:		return "Mode 4K2160p25";
+	case bmdMode4K2160p2997:	return "Mode 4K2160p2997";
+	case bmdMode4K2160p30:		return "Mode 4K2160p30";
+	case bmdMode4K2160p50:		return "Mode 4K2160p50";
+	case bmdMode4K2160p5994:	return "Mode 4K2160p5994";
+	case bmdMode4K2160p60:		return "Mode 4K2160p60";
+	case bmdMode4kDCI2398:		return "Mode 4kDCI2398";
+	case bmdMode4kDCI24:		return "Mode 4kDCI24";
+	case bmdMode4kDCI25:		return "Mode 4kDCI25";
+	case bmdModeUnknown:		return "Mode Unknown";
+	default:					return "";
+	}
+}
+
 glm::ivec2 DeckLinkDevice::getDisplayModeBufferSize( BMDDisplayMode mode ) {
 
 	if( mode == bmdModeNTSC2398
@@ -297,9 +341,6 @@ bool DeckLinkDevice::start( BMDDisplayMode videoMode )
 	if( mSupportsFormatDetection )
 		videoInputFlags |= bmdVideoInputEnableFormatDetection;
 
-	// Set capture callback
-	mDecklinkInput->SetCallback( this );
-
 	// Set the video input mode
 	if( mDecklinkInput->EnableVideoInput( videoMode, bmdFormat8BitYUV, videoInputFlags ) != S_OK ) {
 		CI_LOG_E( "This application was unable to select the chosen video mode. Perhaps, the selected device is currently in-use." );
@@ -312,6 +353,9 @@ bool DeckLinkDevice::start( BMDDisplayMode videoMode )
 		return false;
 	}
 
+	// Set capture callback
+	mDecklinkInput->SetCallback( this );
+
 	mCurrentlyCapturing = true;
 	return true;
 }
@@ -322,6 +366,7 @@ void DeckLinkDevice::stop()
 		return;
 
 	if( mDecklinkInput != NULL ) {
+		mDecklinkInput->FlushStreams();
 		mDecklinkInput->StopStreams();
 		mDecklinkInput->SetCallback( NULL );
 	}
@@ -333,6 +378,8 @@ HRESULT DeckLinkDevice::VideoInputFormatChanged(/* in */ BMDVideoInputFormatChan
 
 	// Stop the capture
 	mDecklinkInput->StopStreams();
+
+	CI_LOG_I( "Video input format changed: " << getDisplayModeString( newMode->GetDisplayMode() ) );
 
 	// Set the video input mode
 	if( mDecklinkInput->EnableVideoInput( newMode->GetDisplayMode(), bmdFormat8BitYUV, bmdVideoInputEnableFormatDetection ) != S_OK ) {
@@ -355,8 +402,7 @@ HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame,
 		return S_OK;
 
 	if( ( frame->GetFlags() & bmdFrameHasNoInputSource ) == 0 ) {
-		auto x = static_cast<int32_t>(frame->GetWidth());
-		auto y = static_cast<int32_t>(frame->GetHeight());
+
 		std::lock_guard<std::mutex> lock( mMutex );
 
 		// Get the various timecodes and userbits for this frame
@@ -366,16 +412,20 @@ HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame,
 		getAncillaryDataFromFrame( frame, bmdTimecodeRP188LTC, mTimecode.rp188ltcTimecode, mTimecode.rp188ltcUserBits );
 		getAncillaryDataFromFrame( frame, bmdTimecodeRP188VITC2, mTimecode.rp188vitc2Timecode, mTimecode.rp188vitc2UserBits );
 
-		mSize = glm::ivec2( x, y );
 		mBuffer.resize( frame->GetRowBytes() * frame->GetHeight() );
 		void * data;
 		frame->GetBytes( &data );
 		std::memcpy( mBuffer.data(), data, mBuffer.size() );
 
 		if( mReadSurface ) {
-			VideoFrame videoFrame{ frame->GetWidth(), frame->GetHeight() };
+			// // YUV 4:2:2 channel
+			//ci::Channel16u yuvChannel{ frame->GetWidth() / 2, frame->GetHeight(), static_cast<ptrdiff_t>( frame->GetRowBytes() ), 2, static_cast<uint16_t*>( data ) };
+			//std::memcpy( yuvChannel.getData(), data, frame->GetRowBytes() * frame->GetHeight() );
+			//mSurface = ci::Surface8u::create( yuvChannel );
+
+			VideoFrameARGB videoFrame{ frame->GetWidth(), frame->GetHeight() };
 			DeckLinkManager::getConverter()->ConvertFrame( frame, &videoFrame );
-			if( mSurface == nullptr || mSurface->getWidth() != frame->GetWidth() || mSurface->getHeight() != frame->GetHeight() ) {
+			if( mSurface == nullptr ) {
 				mSurface = ci::Surface8u::create( frame->GetWidth(), frame->GetHeight(), true, ci::SurfaceChannelOrder::ARGB );
 			}
 			std::memcpy( mSurface->getData(), videoFrame.data(), videoFrame.GetRowBytes() * videoFrame.GetHeight() );
@@ -418,7 +468,7 @@ DeckLinkDevice::Timecodes DeckLinkDevice::getTimecode() const
 	return mTimecode;
 }
 
-bool DeckLinkDevice::getTexture( ci::gl::Texture2dRef& texture )
+bool DeckLinkDevice::getTexture( ci::gl::Texture2dRef& texture, Timecodes * timecodes )
 {
 	if( ! mNewFrame )
 		return false;
@@ -428,13 +478,16 @@ bool DeckLinkDevice::getTexture( ci::gl::Texture2dRef& texture )
 	std::lock_guard<std::mutex> lock( mMutex );
 	texture = ci::gl::Texture2d::create( mBuffer.data(), GL_BGRA, mSize.x/2, mSize.y, ci::gl::Texture::Format().internalFormat( GL_RGBA ).dataType( GL_UNSIGNED_INT_8_8_8_8_REV ) );
 	
+	if( timecodes )
+		*timecodes = mTimecode;
+
 	return true;
 }
 
-bool DeckLinkDevice::getSurface( ci::SurfaceRef& surface )
+bool DeckLinkDevice::getSurface( ci::SurfaceRef& surface, Timecodes * timecodes )
 {
 	mReadSurface = true;
-	if( ! mNewFrame || mSurface == nullptr )
+	if( ! mNewFrame || ! mSurface )
 		return false;
 
 	std::lock_guard<std::mutex> lock( mMutex );
@@ -445,6 +498,8 @@ bool DeckLinkDevice::getSurface( ci::SurfaceRef& surface )
 		surface = ci::Surface8u::create( *mSurface );
 	}
 	
+	if( timecodes )
+		*timecodes = mTimecode;
 
 	return true;
 }

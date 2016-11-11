@@ -14,68 +14,71 @@ using namespace std;
 
 class BasicCaptureApp : public App {
 public:
-	void setup() override;
+	BasicCaptureApp();
 	void keyDown( KeyEvent event ) override;
 	void mouseDown( MouseEvent event ) override;
 	void update() override;
 	void draw() override;
 	void cleanup() override;
 
-	std::unique_ptr<DeckLinkDevice>	mDecklink;
-	SurfaceRef			mSurface;
-	gl::TextureRef		mTexture;
+	std::vector<DeckLinkDeviceRef>	mDevices;
+
+	std::vector<SurfaceRef>			mSurfaces;
+	DeckLinkDevice::Timecodes		mTimecodes;
 };
 
-void BasicCaptureApp::setup()
+BasicCaptureApp::BasicCaptureApp()
 {
-	try {
-		mDecklink = std::unique_ptr<DeckLinkDevice>( new DeckLinkDevice{ DeckLinkManager::getDevice( 0 ) } );
-		std::stringstream ss;
-		for( auto& mode : mDecklink->getDisplayModeNames() ) {
-			ss << mode << ", ";
+	//for( size_t i = 0; i < 2; ++i ) {
+		try {
+			auto device = std::make_shared<DeckLinkDevice>( DeckLinkManager::getDevice( 0 ) );
+			device->start( BMDDisplayMode::bmdModeHD1080p30 );
+			mDevices.push_back( device );
 		}
-		app::console() << ss.str() << std::endl;
-
-		mDecklink->start( BMDDisplayMode::bmdModeHD1080p30 );
-	}
-	catch( DecklinkExc& exc ) {
-		CI_LOG_EXCEPTION( "", exc );
-	}
+		catch( DecklinkExc& exc ) {
+			CI_LOG_EXCEPTION( "", exc );
+		}
+	//}
 
 	gl::enableAlphaBlending();
 
 	//FIXME: debugging deallocation. This seems to work, but not on cleanup?
 	getWindow()->getSignalClose().connect( [this] {
-		if( mDecklink ) mDecklink->cleanup();
+		for( auto& device : mDevices ) {
+			device.reset();
+		}
 		DeckLinkManager::cleanup();
 	} );
 }
 
 void BasicCaptureApp::update()
 {
-	if( !mDecklink )
+	if( mDevices.empty() )
 		return;
 
-	mDecklink->getSurface( mSurface );
-	//mDecklink->getTexture( mTexture );
+	mSurfaces.clear();
+
+	for( const auto& device : mDevices ) {
+		ci::Surface8uRef surface;
+		if( device->getSurface( surface, &mTimecodes ) ) {
+			mSurfaces.push_back( surface );
+		}
+	}
 }
 
 void BasicCaptureApp::draw()
 {
 	gl::clear();
 
-	if( mTexture ) {
-		gl::ScopedMatrices push;
-		auto glsl = DeckLinkManager::getYUV2RGBShader();
-		gl::ScopedGlslProg bind( glsl );
-		gl::ScopedTextureBind tex0( mTexture, 0 );
+	int i = 0;
+	for( const auto &surface : mSurfaces ) {
+		auto windowBounds = Rectf{ app::getWindowBounds() };
+		int width = windowBounds.getWidth() / mSurfaces.size();
+		int height = windowBounds.getHeight();
+		gl::draw( gl::Texture2d::create( *surface ), surface->getBounds(), Area{ width * i, 0, width * (i + 1), height } );
 
-		gl::setMatricesWindow( app::getWindowSize() );
-		gl::drawSolidRect( app::getWindowBounds() );
-	}
-
-	if( mSurface ) {
-		gl::draw( gl::Texture2d::create( *mSurface ), app::getWindowBounds() );
+		gl::drawString( mTimecodes.rp188ltcTimecode, app::getWindowCenter() );
+		++i;
 	}
 }
 
@@ -86,12 +89,7 @@ void BasicCaptureApp::cleanup()
 
 void BasicCaptureApp::keyDown( KeyEvent event )
 {
-	//if( event.getCode() == KeyEvent::KEY_1 ) {
-	//	mDecklink->start( BMDDisplayMode::bmdModeHD1080p30 );
-	//}
-	//else if( event.getCode() == KeyEvent::KEY_2 ) {
-	//	mDecklink->stop();
-	//}
+
 }
 
 void BasicCaptureApp::mouseDown( MouseEvent event )

@@ -70,7 +70,7 @@ private:
 	friend class DeckLinkDevice;
 };
 
-//typedef std::shared_ptr<class DeckLinkDevice> DeckLinkDeviceRef;
+typedef std::shared_ptr<class DeckLinkDevice> DeckLinkDeviceRef;
 
 class DeckLinkDevice : private IDeckLinkInputCallback, public ci::Noncopyable {
 public:
@@ -104,12 +104,12 @@ public:
 	void						cleanup();
 
 	Timecodes					getTimecode() const;
-	bool						getTexture( ci::gl::Texture2dRef& texture );
-	bool						getSurface( ci::SurfaceRef& surface );
+	bool						getTexture( ci::gl::Texture2dRef& texture, Timecodes * timecodes = nullptr );
+	bool						getSurface( ci::SurfaceRef& surface, Timecodes * timecodes = nullptr );
 private:
-	class VideoFrame : public IDeckLinkVideoFrame {
+	class VideoFrameARGB : public IDeckLinkVideoFrame {
 	public:
-		VideoFrame( long width, long height )
+		VideoFrameARGB( long width, long height )
 			: mWidth{ width }, mHeight{ height }
 		{
 			mData.resize( height * width * 4 );
