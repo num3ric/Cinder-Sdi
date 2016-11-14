@@ -7,7 +7,6 @@
 #include "cinder/gl/gl.h"
 
 #include "DecklinkDevice.h"
-
 #include <map>
 
 using namespace ci;
@@ -28,8 +27,8 @@ public:
 };
 
 BasicCaptureApp::BasicCaptureApp()
+	: mDeviceDiscovery{ new DeckLinkDeviceDiscovery }
 {
-	mDeviceDiscovery = make_shared<DeckLinkDeviceDiscovery>();
 	mDeviceDiscovery->getSignalDeviceArrived().connect( [this] ( IDeckLink * decklink, size_t index ) {
 		if( ! mDevices.empty() )
 			return;

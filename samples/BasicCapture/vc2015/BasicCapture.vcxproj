@@ -71,7 +71,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\include;"..\..\..\..\..\include";..\..\..\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;$(CINDER_PATH)\include;..\..\..\include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32_WINNT=0x0601;_WINDOWS;NOMINMAX;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -88,7 +88,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>cinder-$(PlatformToolset).lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>"..\..\..\..\..\lib\msw\$(PlatformTarget)"</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CINDER_PATH)\lib\msw\$(PlatformTarget)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <SubSystem>Windows</SubSystem>
