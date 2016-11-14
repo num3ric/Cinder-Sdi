@@ -50,8 +50,6 @@ BasicCaptureApp::BasicCaptureApp()
 		}
 		mDevices.clear();
 		mDeviceDiscovery.reset();
-
-		std::this_thread::sleep_for( 0.5s );
 	} );
 
 	gl::enableAlphaBlending();
