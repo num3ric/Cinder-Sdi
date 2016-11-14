@@ -11,49 +11,19 @@ std::string ws2s( const std::wstring& wstr )
 	return converterX.to_bytes( wstr );
 }
 
-std::unique_ptr<DeckLinkManager> DeckLinkManager::mInstance = nullptr;
-std::once_flag DeckLinkManager::mOnceFlag;
-
-DeckLinkManager& DeckLinkManager::instance()
+DeckLinkDeviceDiscovery::DeckLinkDeviceDiscovery()
+	: m_deckLinkDiscovery( NULL ), m_refCount( 1 ), mVideoConverter{ NULL }
 {
-	std::call_once( mOnceFlag,
-		[] {
-		mInstance.reset( new DeckLinkManager{} );
-	});
-
-	return *mInstance;
-}
-
-void DeckLinkManager::cleanup()
-{
-	for( auto& device : instance().mDevices ) {
-		device->Release();
-		device = NULL;
+	if( CoCreateInstance( CLSID_CDeckLinkDiscovery, NULL, CLSCTX_ALL, IID_IDeckLinkDiscovery, (void**)&m_deckLinkDiscovery ) != S_OK ) {
+		m_deckLinkDiscovery = NULL;
 	}
-}
 
-DeckLinkManager::DeckLinkManager()
-	: mVideoConverter{ NULL }
-{
-	IDeckLinkIterator* deckLinkIterator = NULL;
-	IDeckLink* deckLink = NULL;
-
-	if( CoCreateInstance( CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void**)&deckLinkIterator ) != S_OK ) {
-		deckLinkIterator = NULL;
-		throw DecklinkExc{ "Please install the Blackmagic Desktop Video drivers to use the features of this application." };
-	}
+	m_deckLinkDiscovery->InstallDeviceNotifications( this );
 
 	if( CoCreateInstance( CLSID_CDeckLinkVideoConversion, NULL, CLSCTX_ALL, IID_IDeckLinkVideoConversion, (void**)&mVideoConverter ) != S_OK ) {
 		throw DecklinkExc{ "Failed to create the decklink video converter." };
 		mVideoConverter = NULL;
 	}
-
-	while( deckLinkIterator->Next( &deckLink ) == S_OK ) {
-		deckLink->AddRef();
-		mDevices.push_back( deckLink );
-	}
-
-	deckLinkIterator->Release();
 
 	try {
 		auto vert = "#version 410 \n"
@@ -94,36 +64,110 @@ DeckLinkManager::DeckLinkManager()
 	}
 }
 
-IDeckLink* DeckLinkManager::getDevice( size_t index )
-{
-	return instance().mDevices.at( index );
-}
 
-size_t DeckLinkManager::getDeviceCount()
+DeckLinkDeviceDiscovery::~DeckLinkDeviceDiscovery()
 {
-	return instance().mDevices.size();
-}
-
-std::vector<std::string> DeckLinkManager::getDeviceNames()
-{
-	std::vector<std::string> names;
-	for( auto& device : instance().mDevices ) {
-		BSTR cfStrName;
-		// Get the name of this device
-		if( device->GetDisplayName( &cfStrName ) == S_OK ) {
-			assert( cfStrName != NULL );
-			std::wstring ws( cfStrName, SysStringLen( cfStrName ) );
-			names.push_back( ws2s( ws ) );
-		}
-		else {
-			names.push_back( "DeckLink" );
-		}
+	if( m_deckLinkDiscovery != NULL )
+	{
+		// Uninstall device arrival notifications and release discovery object
+		m_deckLinkDiscovery->UninstallDeviceNotifications();
+		m_deckLinkDiscovery->Release();
+		m_deckLinkDiscovery = NULL;
 	}
-	return names;
 }
 
-DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
-: mDecklink( device )
+std::string DeckLinkDeviceDiscovery::getDeviceName( IDeckLink * device )
+{
+	if( device == nullptr ) {
+		CI_LOG_E( "No device." );
+		return "";
+	}
+	
+	BSTR cfStrName;
+	// Get the name of this device
+	if( device->GetDisplayName( &cfStrName ) == S_OK ) {
+		assert( cfStrName != NULL );
+		std::wstring ws( cfStrName, SysStringLen( cfStrName ) );
+		return ws2s( ws );
+	}
+
+	CI_LOG_I( "No device name found." );
+	return "DeckLink";
+}
+
+HRESULT     DeckLinkDeviceDiscovery::DeckLinkDeviceArrived( IDeckLink* decklink )
+{
+	IDeckLinkAttributes* deckLinkAttributes = NULL;
+	LONGLONG index = 0;
+	if( decklink->QueryInterface( IID_IDeckLinkAttributes, (void**)&deckLinkAttributes ) == S_OK ) {
+		if( deckLinkAttributes->GetInt( BMDDeckLinkSubDeviceIndex, &index ) != S_OK ) {
+			CI_LOG_E( "Cannot read device index." );
+		}
+		deckLinkAttributes->Release();
+	}
+
+	CI_LOG_I( "Device " << getDeviceName( decklink ) << " with index " << index << " arrived." );
+
+	mSignalDeviceArrived.emit( decklink, static_cast<size_t>( index ) );
+	return S_OK;
+}
+
+HRESULT     DeckLinkDeviceDiscovery::DeckLinkDeviceRemoved(/* in */ IDeckLink* decklink )
+{
+	CI_LOG_I( "Device " << getDeviceName( decklink ) << " removed" );
+
+	return S_OK;
+}
+
+HRESULT	STDMETHODCALLTYPE DeckLinkDeviceDiscovery::QueryInterface( REFIID iid, LPVOID *ppv )
+{
+	HRESULT			result = E_NOINTERFACE;
+
+	if( ppv == NULL )
+		return E_INVALIDARG;
+
+	// Initialise the return result
+	*ppv = NULL;
+
+	// Obtain the IUnknown interface and compare it the provided REFIID
+	if( iid == IID_IUnknown )
+	{
+		*ppv = this;
+		AddRef();
+		result = S_OK;
+	}
+	else if( iid == IID_IDeckLinkDeviceNotificationCallback )
+	{
+		*ppv = (IDeckLinkDeviceNotificationCallback*)this;
+		AddRef();
+		result = S_OK;
+	}
+
+	return result;
+}
+
+ULONG STDMETHODCALLTYPE DeckLinkDeviceDiscovery::AddRef( void )
+{
+	return InterlockedIncrement( (LONG*)&m_refCount );
+}
+
+ULONG STDMETHODCALLTYPE DeckLinkDeviceDiscovery::Release( void )
+{
+	ULONG		newRefValue;
+
+	newRefValue = InterlockedDecrement( (LONG*)&m_refCount );
+	if( newRefValue == 0 )
+	{
+		delete this;
+		return 0;
+	}
+
+	return newRefValue;
+}
+
+DeckLinkDevice::DeckLinkDevice( DeckLinkDeviceDiscovery * manager, IDeckLink * device )
+: mDeviceDiscovery( manager )
+, mDecklink( device )
 , mDecklinkInput( NULL )
 , mSupportsFormatDetection( 0 )
 , mCurrentlyCapturing( false )
@@ -131,6 +175,7 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 , mNewFrame{ false }
 , mReadSurface{ false }
 , mSurface{ nullptr }
+, m_refCount{ 1 }
 {
 	mDecklink->AddRef();
 
@@ -139,17 +184,10 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 	IDeckLinkDisplayMode* displayMode = NULL;
 	bool result = false;
 
-	// A new device has been selected.
-	// Release the previous selected device and mode list
-	if( mDecklinkInput != NULL ) {
-		mDecklinkInput->Release();
-	}
-
 	while( mModesList.size() > 0 ) {
 		mModesList.back()->Release();
 		mModesList.pop_back();
 	}
-
 
 	// Get the IDeckLinkInput for the selected device
 	if( mDecklink->QueryInterface( IID_IDeckLinkInput, (void**)&mDecklinkInput ) != S_OK ) {
@@ -174,6 +212,10 @@ DeckLinkDevice::DeckLinkDevice( IDeckLink * device )
 		if( deckLinkAttributes->GetFlag( BMDDeckLinkSupportsInputFormatDetection, &support ) == S_OK )
 			mSupportsFormatDetection = support;
 
+		LONGLONG index;
+		if( deckLinkAttributes->GetInt( BMDDeckLinkSubDeviceIndex, &index ) == S_OK ) {
+			CI_LOG_I( index );
+		}
 		deckLinkAttributes->Release();
 	}
 }
@@ -366,7 +408,6 @@ void DeckLinkDevice::stop()
 		return;
 
 	if( mDecklinkInput != NULL ) {
-		mDecklinkInput->FlushStreams();
 		mDecklinkInput->StopStreams();
 		mDecklinkInput->SetCallback( NULL );
 	}
@@ -424,7 +465,7 @@ HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame,
 			//mSurface = ci::Surface8u::create( yuvChannel );
 
 			VideoFrameARGB videoFrame{ frame->GetWidth(), frame->GetHeight() };
-			DeckLinkManager::getConverter()->ConvertFrame( frame, &videoFrame );
+			mDeviceDiscovery->getConverter()->ConvertFrame( frame, &videoFrame );
 			if( mSurface == nullptr ) {
 				mSurface = ci::Surface8u::create( frame->GetWidth(), frame->GetHeight(), true, ci::SurfaceChannelOrder::ARGB );
 			}
@@ -503,3 +544,56 @@ bool DeckLinkDevice::getSurface( ci::SurfaceRef& surface, Timecodes * timecodes 
 
 	return true;
 }
+
+HRESULT	STDMETHODCALLTYPE DeckLinkDevice::QueryInterface( REFIID iid, LPVOID *ppv )
+{
+	HRESULT			result = E_NOINTERFACE;
+
+	if( ppv == NULL )
+		return E_INVALIDARG;
+
+	// Initialise the return result
+	*ppv = NULL;
+
+	// Obtain the IUnknown interface and compare it the provided REFIID
+	if( iid == IID_IUnknown )
+	{
+		*ppv = this;
+		AddRef();
+		result = S_OK;
+	}
+	else if( iid == IID_IDeckLinkInputCallback )
+	{
+		*ppv = (IDeckLinkInputCallback*)this;
+		AddRef();
+		result = S_OK;
+	}
+	else if( iid == IID_IDeckLinkNotificationCallback )
+	{
+		*ppv = (IDeckLinkNotificationCallback*)this;
+		AddRef();
+		result = S_OK;
+	}
+
+	return result;
+}
+
+ULONG STDMETHODCALLTYPE DeckLinkDevice::AddRef( void )
+{
+	return InterlockedIncrement( (LONG*)&m_refCount );
+}
+
+ULONG STDMETHODCALLTYPE DeckLinkDevice::Release( void )
+{
+	int		newRefValue;
+
+	newRefValue = InterlockedDecrement( (LONG*)&m_refCount );
+	if( newRefValue == 0 )
+	{
+		delete this;
+		return 0;
+	}
+
+	return newRefValue;
+}
+

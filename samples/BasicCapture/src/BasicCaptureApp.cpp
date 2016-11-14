@@ -8,6 +8,8 @@
 
 #include "DecklinkDevice.h"
 
+#include <map>
+
 using namespace ci;
 using namespace ci::app;
 using namespace std;
@@ -15,40 +17,44 @@ using namespace std;
 class BasicCaptureApp : public App {
 public:
 	BasicCaptureApp();
-	void keyDown( KeyEvent event ) override;
-	void mouseDown( MouseEvent event ) override;
 	void update() override;
 	void draw() override;
-	void cleanup() override;
 
-	std::vector<DeckLinkDeviceRef>	mDevices;
+	DeckLinkDeviceDiscoveryRef				mDeviceDiscovery;
 
-	std::vector<SurfaceRef>			mSurfaces;
-	DeckLinkDevice::Timecodes		mTimecodes;
+	std::map<size_t, DeckLinkDeviceRef>		mDevices;
+	std::vector<SurfaceRef>					mSurfaces;
+	DeckLinkDevice::Timecodes				mTimecodes;
 };
 
 BasicCaptureApp::BasicCaptureApp()
 {
-	//for( size_t i = 0; i < 2; ++i ) {
+	mDeviceDiscovery = make_shared<DeckLinkDeviceDiscovery>();
+	mDeviceDiscovery->getSignalDeviceArrived().connect( [this] ( IDeckLink * decklink, size_t index ) {
+		if( ! mDevices.empty() )
+			return;
+
 		try {
-			auto device = std::make_shared<DeckLinkDevice>( DeckLinkManager::getDevice( 0 ) );
+			auto device = make_shared<DeckLinkDevice>( mDeviceDiscovery.get(), decklink );
 			device->start( BMDDisplayMode::bmdModeHD1080p30 );
-			mDevices.push_back( device );
+			mDevices[index] = device;
 		}
 		catch( DecklinkExc& exc ) {
 			CI_LOG_EXCEPTION( "", exc );
 		}
-	//}
+	} );
+
+	getWindow()->getSignalClose().connect( [this] {
+		for( auto& kv : mDevices ) {
+			kv.second->cleanup();
+		}
+		mDevices.clear();
+		mDeviceDiscovery.reset();
+
+		std::this_thread::sleep_for( 0.5s );
+	} );
 
 	gl::enableAlphaBlending();
-
-	//FIXME: debugging deallocation. This seems to work, but not on cleanup?
-	getWindow()->getSignalClose().connect( [this] {
-		for( auto& device : mDevices ) {
-			device.reset();
-		}
-		DeckLinkManager::cleanup();
-	} );
 }
 
 void BasicCaptureApp::update()
@@ -58,9 +64,9 @@ void BasicCaptureApp::update()
 
 	mSurfaces.clear();
 
-	for( const auto& device : mDevices ) {
+	for( const auto& kv : mDevices ) {
 		ci::Surface8uRef surface;
-		if( device->getSurface( surface, &mTimecodes ) ) {
+		if( kv.second->getSurface( surface, &mTimecodes ) ) {
 			mSurfaces.push_back( surface );
 		}
 	}
@@ -80,20 +86,6 @@ void BasicCaptureApp::draw()
 		gl::drawString( mTimecodes.rp188ltcTimecode, app::getWindowCenter() );
 		++i;
 	}
-}
-
-void BasicCaptureApp::cleanup()
-{
-}
-
-
-void BasicCaptureApp::keyDown( KeyEvent event )
-{
-
-}
-
-void BasicCaptureApp::mouseDown( MouseEvent event )
-{
 }
 
 void prepareSettings( App::Settings* settings )

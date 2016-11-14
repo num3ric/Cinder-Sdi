@@ -44,28 +44,41 @@
 #include <vector>
 #include <atomic>
 
-class DeckLinkManager : public ci::Noncopyable {
+
+typedef std::shared_ptr<class DeckLinkDeviceDiscovery> DeckLinkDeviceDiscoveryRef;
+
+class DeckLinkDeviceDiscovery : public IDeckLinkDeviceNotificationCallback, public ci::Noncopyable
+{
 public:
-	static DeckLinkManager& instance();
-	static void cleanup();
+	DeckLinkDeviceDiscovery();
+	virtual ~DeckLinkDeviceDiscovery();
 
-	static IDeckLink*					getDevice( size_t index );
-	static std::vector<IDeckLink*>		getDevices() { return instance().mDevices; }
-	static size_t						getDeviceCount();
-	static std::vector<std::string>		getDeviceNames();
-	static ci::gl::GlslProgRef			getYUV2RGBShader() { return instance().mGlslYUV2RGB; }
+	static std::string&								getDeviceName( const IDeckLink * device );
+	ci::signals::Signal<void(IDeckLink*, size_t)>&	getSignalDeviceArrived() { return mSignalDeviceArrived; }
+
+	std::string										getDeviceName( IDeckLink* device );
+	ci::gl::GlslProgRef								getYUV2RGBShader() { return mGlslYUV2RGB; }
+
+	// IDeckLinkDeviceNotificationCallback interface
+	virtual HRESULT	STDMETHODCALLTYPE	DeckLinkDeviceArrived(/* in */ IDeckLink* deckLink );
+	virtual HRESULT	STDMETHODCALLTYPE	DeckLinkDeviceRemoved(/* in */ IDeckLink* deckLink );
+
+	// IUnknown needs only a dummy implementation
+	virtual HRESULT	STDMETHODCALLTYPE	QueryInterface( REFIID iid, LPVOID *ppv );
+	virtual ULONG	STDMETHODCALLTYPE	AddRef();
+	virtual ULONG	STDMETHODCALLTYPE	Release();
+
 private:
-	DeckLinkManager();
-	static IDeckLinkVideoConversion *	getConverter() { return instance().mVideoConverter; }
+	IDeckLinkDiscovery*					m_deckLinkDiscovery;
+	ULONG								m_refCount;
 
-	std::vector<IDeckLink*>					mDevices;
-	IDeckLinkVideoConversion *				mVideoConverter;
+	IDeckLinkVideoConversion*	getConverter() { return mVideoConverter; }
+	IDeckLinkVideoConversion*	mVideoConverter;
 	// The captured video is YCbCr 4:2:2 packed into a UYVY macropixel.  OpenGL has no YCbCr format
 	// so treat it as RGBA 4:4:4:4 by halving the width and using GL_RGBA internal format.
-	ci::gl::GlslProgRef						mGlslYUV2RGB;
+	ci::gl::GlslProgRef			mGlslYUV2RGB;
 
-	static std::unique_ptr<DeckLinkManager>	mInstance;
-	static std::once_flag					mOnceFlag;
+	ci::signals::Signal<void(IDeckLink*, size_t)> mSignalDeviceArrived;
 
 	friend class DeckLinkDevice;
 };
@@ -90,7 +103,7 @@ public:
 		std::string rp188ltcUserBits;
 	} Timecodes;
 
-	DeckLinkDevice( IDeckLink * device );
+	DeckLinkDevice( DeckLinkDeviceDiscovery * manager, IDeckLink * device );
 	virtual ~DeckLinkDevice();
 
 	std::vector<std::string>	getDisplayModeNames();
@@ -144,10 +157,11 @@ private:
 	virtual HRESULT				VideoInputFormatChanged( BMDVideoInputFormatChangedEvents notificationEvents, IDeckLinkDisplayMode *newDisplayMode, BMDDetectedVideoInputFormatFlags detectedSignalFlags ) override;
 	virtual HRESULT				VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame, IDeckLinkAudioInputPacket* audioPacket ) override;
 
-	virtual HRESULT				QueryInterface( REFIID iid, LPVOID *ppv ) override { return E_NOINTERFACE; }
-	virtual ULONG				AddRef() override { return 1; }
-	virtual ULONG				Release() override { return 1; }
+	virtual HRESULT				QueryInterface( REFIID iid, LPVOID *ppv ) override;// { return E_NOINTERFACE; }
+	virtual ULONG				AddRef() override;// { return 1; }
+	virtual ULONG				Release() override;// { return 1; }
 
+	DeckLinkDeviceDiscovery *			mDeviceDiscovery;
 	IDeckLink *							mDecklink;
 	IDeckLinkInput *					mDecklinkInput;
 	std::vector<IDeckLinkDisplayMode*>	mModesList;
@@ -164,6 +178,8 @@ private:
 	std::vector<uint16_t>				mBuffer;
 
 	Timecodes							mTimecode;
+
+	ULONG								m_refCount;
 };
 
 
