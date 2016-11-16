@@ -16,6 +16,8 @@ DeckLinkDeviceDiscovery::DeckLinkDeviceDiscovery()
 {
 	if( CoCreateInstance( CLSID_CDeckLinkDiscovery, NULL, CLSCTX_ALL, IID_IDeckLinkDiscovery, (void**)&m_deckLinkDiscovery ) != S_OK ) {
 		m_deckLinkDiscovery = NULL;
+		CI_LOG_E( "Failed to create decklink discovery instance." );
+		return;
 	}
 
 	m_deckLinkDiscovery->InstallDeviceNotifications( this );
