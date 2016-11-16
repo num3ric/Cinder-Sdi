@@ -466,10 +466,10 @@ HRESULT DeckLinkDevice::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame,
 			//std::memcpy( yuvChannel.getData(), data, frame->GetRowBytes() * frame->GetHeight() );
 			//mSurface = ci::Surface8u::create( yuvChannel );
 
-			VideoFrameARGB videoFrame{ frame->GetWidth(), frame->GetHeight() };
+			VideoFrameBGRA videoFrame{ frame->GetWidth(), frame->GetHeight() };
 			mDeviceDiscovery->getConverter()->ConvertFrame( frame, &videoFrame );
 			if( mSurface == nullptr ) {
-				mSurface = ci::Surface8u::create( frame->GetWidth(), frame->GetHeight(), true, ci::SurfaceChannelOrder::ARGB );
+				mSurface = ci::Surface8u::create( frame->GetWidth(), frame->GetHeight(), true, ci::SurfaceChannelOrder::BGRA );
 			}
 			std::memcpy( mSurface->getData(), videoFrame.data(), videoFrame.GetRowBytes() * videoFrame.GetHeight() );
 		}

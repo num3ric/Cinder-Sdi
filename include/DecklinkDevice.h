@@ -120,9 +120,9 @@ public:
 	bool						getTexture( ci::gl::Texture2dRef& texture, Timecodes * timecodes = nullptr );
 	bool						getSurface( ci::SurfaceRef& surface, Timecodes * timecodes = nullptr );
 private:
-	class VideoFrameARGB : public IDeckLinkVideoFrame {
+	class VideoFrameBGRA : public IDeckLinkVideoFrame {
 	public:
-		VideoFrameARGB( long width, long height )
+		VideoFrameBGRA( long width, long height )
 			: mWidth{ width }, mHeight{ height }
 		{
 			mData.resize( height * width * 4 );
@@ -134,7 +134,7 @@ private:
 		virtual long			GetWidth( void ) { return mWidth; }
 		virtual long			GetHeight( void ) { return mHeight; }
 		virtual long			GetRowBytes( void ) { return mWidth * 4; }
-		virtual BMDPixelFormat	GetPixelFormat( void ) { return bmdFormat8BitARGB; }
+		virtual BMDPixelFormat	GetPixelFormat( void ) { return bmdFormat8BitBGRA; }
 		virtual BMDFrameFlags	GetFlags( void ) { return 0; }
 		virtual HRESULT			GetBytes( void **buffer )
 		{
