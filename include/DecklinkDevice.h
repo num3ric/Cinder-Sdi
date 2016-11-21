@@ -35,15 +35,16 @@
 
 #pragma once
 
-#include "DeckLinkAPI_h.h"
+#include <afxwin.h>
 
 #include "cinder/gl/gl.h"
 #include "cinder/Surface.h"
 #include "cinder/Noncopyable.h"
 
+#include "DeckLinkAPI_h.h"
+
 #include <vector>
 #include <atomic>
-
 
 typedef std::shared_ptr<class DeckLinkDeviceDiscovery> DeckLinkDeviceDiscoveryRef;
 

@@ -109,7 +109,6 @@
     <ClCompile Include="..\..\..\src\DeckLinkAPI_i.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\include\stdafx.h" />
     <ClInclude Include="..\include\Resources.h" />
     <ClInclude Include="..\..\..\include\DeckLinkAPI_h.h" />
     <ClInclude Include="..\..\..\include\DeckLinkAPIVersion.h" />

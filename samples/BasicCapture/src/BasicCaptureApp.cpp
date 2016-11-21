@@ -1,6 +1,3 @@
-//FIXME: Remove the necessity to include this first!
-#include "stdafx.h"
-
 #include "cinder/app/App.h"
 #include "cinder/app/RendererGl.h"
 #include "cinder/Log.h"
