@@ -9,12 +9,15 @@
 using namespace ci;
 using namespace ci::app;
 using namespace std;
+using namespace std::placeholders;
 
 class BasicCaptureApp : public App {
 public:
 	BasicCaptureApp();
 	void update() override;
 	void draw() override;
+
+	void deviceArrived( IDeckLink * decklink, size_t index );
 
 	DeckLinkDeviceDiscoveryRef				mDeviceDiscovery;
 
@@ -24,22 +27,8 @@ public:
 };
 
 BasicCaptureApp::BasicCaptureApp()
-	: mDeviceDiscovery{ new DeckLinkDeviceDiscovery }
+	: mDeviceDiscovery{ new DeckLinkDeviceDiscovery{ std::bind( &BasicCaptureApp::deviceArrived, this, _1, _2 ) } }
 {
-	mDeviceDiscovery->getSignalDeviceArrived().connect( [this] ( IDeckLink * decklink, size_t index ) {
-		if( ! mDevices.empty() )
-			return;
-
-		try {
-			auto device = make_shared<DeckLinkDevice>( mDeviceDiscovery.get(), decklink );
-			device->start( BMDDisplayMode::bmdModeHD1080p30 );
-			mDevices[index] = device;
-		}
-		catch( DecklinkExc& exc ) {
-			CI_LOG_EXCEPTION( "", exc );
-		}
-	} );
-
 	getWindow()->getSignalClose().connect( [this] {
 		for( auto& kv : mDevices ) {
 			kv.second->cleanup();
@@ -49,6 +38,22 @@ BasicCaptureApp::BasicCaptureApp()
 	} );
 
 	gl::enableAlphaBlending();
+}
+
+void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
+{
+	if( ! mDevices.empty() )
+		return;
+
+	try {
+		auto device = make_shared<DeckLinkDevice>( mDeviceDiscovery.get(), decklink );
+		device->start( BMDDisplayMode::bmdModeHD1080p30 );
+		mDevices[index] = device;
+		CI_LOG_I( "Starting sdi device." );
+	}
+	catch( DecklinkExc& exc ) {
+		CI_LOG_EXCEPTION( "", exc );
+	}
 }
 
 void BasicCaptureApp::update()

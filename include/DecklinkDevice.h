@@ -51,11 +51,10 @@ typedef std::shared_ptr<class DeckLinkDeviceDiscovery> DeckLinkDeviceDiscoveryRe
 class DeckLinkDeviceDiscovery : public IDeckLinkDeviceNotificationCallback, public ci::Noncopyable
 {
 public:
-	DeckLinkDeviceDiscovery();
+	DeckLinkDeviceDiscovery( std::function<void(IDeckLink*,size_t)> deviceCallback );
 	virtual ~DeckLinkDeviceDiscovery();
 
 	static std::string&								getDeviceName( const IDeckLink * device );
-	ci::signals::Signal<void(IDeckLink*, size_t)>&	getSignalDeviceArrived() { return mSignalDeviceArrived; }
 
 	std::string										getDeviceName( IDeckLink* device );
 	ci::gl::GlslProgRef								getYUV2RGBShader() { return mGlslYUV2RGB; }
@@ -79,7 +78,7 @@ private:
 	// so treat it as RGBA 4:4:4:4 by halving the width and using GL_RGBA internal format.
 	ci::gl::GlslProgRef			mGlslYUV2RGB;
 
-	ci::signals::Signal<void(IDeckLink*, size_t)> mSignalDeviceArrived;
+	std::function<void( IDeckLink*, size_t )> mDeviceArrivedCallback;
 
 	friend class DeckLinkDevice;
 };

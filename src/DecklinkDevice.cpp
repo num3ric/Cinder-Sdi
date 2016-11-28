@@ -11,8 +11,8 @@ std::string ws2s( const std::wstring& wstr )
 	return converterX.to_bytes( wstr );
 }
 
-DeckLinkDeviceDiscovery::DeckLinkDeviceDiscovery()
-	: m_deckLinkDiscovery( NULL ), m_refCount( 1 ), mVideoConverter{ NULL }
+DeckLinkDeviceDiscovery::DeckLinkDeviceDiscovery( std::function<void( IDeckLink*, size_t )> deviceCallback )
+	: mDeviceArrivedCallback{ deviceCallback }, m_deckLinkDiscovery( NULL ), m_refCount( 1 ), mVideoConverter{ NULL }
 {
 	if( CoCreateInstance( CLSID_CDeckLinkDiscovery, NULL, CLSCTX_ALL, IID_IDeckLinkDiscovery, (void**)&m_deckLinkDiscovery ) != S_OK ) {
 		m_deckLinkDiscovery = NULL;
@@ -110,7 +110,7 @@ HRESULT     DeckLinkDeviceDiscovery::DeckLinkDeviceArrived( IDeckLink* decklink 
 
 	CI_LOG_I( "Device " << getDeviceName( decklink ) << " with index " << index << " arrived." );
 
-	mSignalDeviceArrived.emit( decklink, static_cast<size_t>( index ) );
+	mDeviceArrivedCallback( decklink, static_cast<size_t>( index ) );
 	return S_OK;
 }
 
