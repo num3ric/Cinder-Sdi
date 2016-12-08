@@ -533,6 +533,8 @@ bool DeckLinkDevice::getSurface( ci::SurfaceRef& surface, Timecodes * timecodes 
 	if( ! mNewFrame || ! mSurface )
 		return false;
 
+	mNewFrame = false;
+
 	std::lock_guard<std::mutex> lock( mMutex );
 	if( surface && surface->getSize() == mSurface->getSize() ) {
 		surface->copyFrom( *mSurface, mSurface->getBounds() );
