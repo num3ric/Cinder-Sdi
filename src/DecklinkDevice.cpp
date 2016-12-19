@@ -419,23 +419,36 @@ void DeckLinkDevice::stop()
 
 HRESULT DeckLinkDevice::VideoInputFormatChanged(/* in */ BMDVideoInputFormatChangedEvents notificationEvents, /* in */ IDeckLinkDisplayMode *newMode, /* in */ BMDDetectedVideoInputFormatFlags detectedSignalFlags ) {
 
+	unsigned int	modeIndex = 0;
+	BMDPixelFormat	pixelFormat = bmdFormat10BitYUV;
+
+	// Restart capture with the new video mode if told to
+	if( ! mSupportsFormatDetection )
+		goto bail;
+
+	if( detectedSignalFlags & bmdDetectedVideoInputRGB444 )
+		pixelFormat = bmdFormat10BitRGB;
+
 	// Stop the capture
 	mDecklinkInput->StopStreams();
 
-	CI_LOG_I( "Video input format changed: " << getDisplayModeString( newMode->GetDisplayMode() ) );
-
 	// Set the video input mode
-	if( mDecklinkInput->EnableVideoInput( newMode->GetDisplayMode(), bmdFormat8BitYUV, bmdVideoInputEnableFormatDetection ) != S_OK ) {
+	if( mDecklinkInput->EnableVideoInput( newMode->GetDisplayMode(), pixelFormat, bmdVideoInputEnableFormatDetection ) != S_OK )
+	{
+		// Let the UI know we couldnt restart the capture with the detected input mode
 		CI_LOG_E( "This application was unable to select the new video mode." );
-		return S_FALSE;
+		goto bail;
 	}
 
 	// Start the capture
-	if( mDecklinkInput->StartStreams() != S_OK ) {
+	if( mDecklinkInput->StartStreams() != S_OK )
+	{
+		// Let the UI know we couldnt restart the capture with the detected input mode
 		CI_LOG_E( "This application was unable to start the capture on the selected device." );
-		return S_FALSE;
+		goto bail;
 	}
 
+bail:
 	return S_OK;
 }
 
