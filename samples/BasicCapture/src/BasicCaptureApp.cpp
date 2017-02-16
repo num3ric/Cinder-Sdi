@@ -3,13 +3,13 @@
 #include "cinder/Log.h"
 #include "cinder/gl/gl.h"
 
-#include "DecklinkDevice.h"
-#include <map>
+#include "DeckLinkDevice.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
 using namespace std::placeholders;
+using namespace media;
 
 class BasicCaptureApp : public App {
 public:
@@ -19,37 +19,33 @@ public:
 
 	void deviceArrived( IDeckLink * decklink, size_t index );
 
-	DeckLinkDeviceDiscoveryRef				mDeviceDiscovery;
-
-	std::map<size_t, DeckLinkDeviceRef>		mDevices;
-	std::vector<SurfaceRef>					mSurfaces;
-	DeckLinkDevice::Timecodes				mTimecodes;
+	DeckLinkDeviceDiscoveryRef	mDeviceDiscovery;
+	DeckLinkDeviceRef			mDevice;
+	SurfaceRef					mSurface;
 };
 
 BasicCaptureApp::BasicCaptureApp()
 	: mDeviceDiscovery{ new DeckLinkDeviceDiscovery{ std::bind( &BasicCaptureApp::deviceArrived, this, _1, _2 ) } }
 {
 	getWindow()->getSignalClose().connect( [this] {
-		for( auto& kv : mDevices ) {
-			kv.second->cleanup();
-		}
-		mDevices.clear();
+		mDevice.reset();
 		mDeviceDiscovery.reset();
 	} );
 
+	//gl::enableVerticalSync( false );
 	gl::enableAlphaBlending();
 }
 
 void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
 {
-	if( ! mDevices.empty() )
+	// For now, we only test the first device arrived.
+	if( mDevice )
 		return;
 
 	try {
-		auto device = make_shared<DeckLinkDevice>( mDeviceDiscovery.get(), decklink );
-		device->start( BMDDisplayMode::bmdModeHD1080p30 );
-		mDevices[index] = device;
-		CI_LOG_I( "Starting sdi device." );
+		mDevice = make_shared<DeckLinkDevice>( decklink );
+		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30 );
+		CI_LOG_I( "Starting sdi device: " << index );
 	}
 	catch( DecklinkExc& exc ) {
 		CI_LOG_EXCEPTION( "", exc );
@@ -58,38 +54,24 @@ void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
 
 void BasicCaptureApp::update()
 {
-	if( mDevices.empty() )
-		return;
-
-	mSurfaces.clear();
-
-	for( const auto& kv : mDevices ) {
-		ci::Surface8uRef surface;
-		if( kv.second->getSurface( surface, &mTimecodes ) ) {
-			mSurfaces.push_back( surface );
-		}
-	}
+	if( mDevice )
+		mDevice->getInput()->getSurface( mSurface );
 }
 
 void BasicCaptureApp::draw()
 {
 	gl::clear();
 
-	int i = 0;
-	for( const auto &surface : mSurfaces ) {
-		auto windowBounds = Rectf{ app::getWindowBounds() };
-		int width = windowBounds.getWidth() / mSurfaces.size();
-		int height = windowBounds.getHeight();
-		gl::draw( gl::Texture2d::create( *surface ), surface->getBounds(), Area{ width * i, 0, width * (i + 1), height } );
-
-		gl::drawString( mTimecodes.rp188ltcTimecode, app::getWindowCenter() );
-		++i;
+	if( mSurface ) {
+		gl::draw( gl::Texture2d::create( *mSurface ), mSurface->getBounds(), app::getWindowBounds() );
 	}
+	gl::drawString( std::to_string( getAverageFps() ), app::getWindowCenter() );
 }
 
 void prepareSettings( App::Settings* settings )
 {
 	//settings->setWindowSize( 1920, 1080 );
+	//settings->disableFrameRate();
 	settings->setWindowSize( 0.5 * 1920, 0.5 * 1080 );
 }
 

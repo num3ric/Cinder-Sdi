@@ -36,32 +36,52 @@
 #pragma once
 
 #include "DeckLinkDeviceDiscovery.h"
-#include "DeckLinkInput.h"
-#include "DeckLinkOutput.h"
+#include "cinder/Surface.h"
+
+#include <vector>
+#include <atomic>
 
 namespace media {
 
-	typedef std::shared_ptr<class DeckLinkDevice> DeckLinkDeviceRef;
-	class DeckLinkDevice : public ci::Noncopyable {
+	class DeckLinkDevice;
+
+	typedef std::shared_ptr<class DeckLinkOutput> DeckLinkOutputRef;
+	class DeckLinkOutput : public IDeckLinkVideoOutputCallback
+	{
 	public:
-		DeckLinkDevice( IDeckLink * decklink );
-		virtual ~DeckLinkDevice();
+		DeckLinkOutput( DeckLinkDevice * device );
+		~DeckLinkOutput();
 
-		DeckLinkInput *				getInput() { return mInput.get(); }
-		DeckLinkOutput *			getOutput() { return mOutput.get(); }
+		void setWindowSurface( const ci::Surface& surface );
+		bool start();
+		void stop();
 
-		glm::ivec2					getDisplayModeBufferSize( BMDDisplayMode mode );
-		bool						isFormatDetectionSupported();
 	private:
-		IDeckLink *							mDecklink;
+		void setPreroll();
 
-		bool								mSupportsFormatDetection;
+		// IDeckLinkVideoOutputCallback
+		virtual HRESULT	STDMETHODCALLTYPE	ScheduledFrameCompleted( IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result ) override;
+		virtual HRESULT	STDMETHODCALLTYPE	ScheduledPlaybackHasStopped() override;
 
-		DeckLinkInputRef					mInput;
-		DeckLinkOutputRef					mOutput;
+		virtual HRESULT				QueryInterface( REFIID iid, LPVOID *ppv ) override;// { return E_NOINTERFACE; }
+		virtual ULONG				AddRef() override;
+		virtual ULONG				Release() override;
 
-		friend class DeckLinkInput;
-		friend class DeckLinkOutput;
+		DeckLinkDevice *	mDevice;
+
+		IDeckLinkOutput*			mDeckLinkOutput;
+		unsigned __int32			uiFrameWidth;
+		unsigned __int32			uiFrameHeight;
+		BMDTimeValue				frameDuration;
+		BMDTimeScale				frameTimescale;
+		unsigned __int32			uiFPS;
+		unsigned __int32			uiTotalFrames;
+
+		ci::SurfaceRef				mWindowSurface;
+
+		mutable std::mutex					mMutex;
+
+		ULONG				m_refCount;
 	};
 }
 

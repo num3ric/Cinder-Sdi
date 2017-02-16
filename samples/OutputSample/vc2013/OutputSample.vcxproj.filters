@@ -14,23 +14,23 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
     <Filter Include="Blocks">
-      <UniqueIdentifier>{2CD66F36-CF4E-4E27-A897-5ED51A212ACA}</UniqueIdentifier>
+      <UniqueIdentifier>{78FE74C1-EF5E-4150-91B2-46D5C9144B4E}</UniqueIdentifier>
     </Filter>
     <Filter Include="Blocks\Cinder-Sdi">
-      <UniqueIdentifier>{D8906C32-9F40-4D61-87CB-154B550B6629}</UniqueIdentifier>
+      <UniqueIdentifier>{A801F951-4B3F-4DAB-A44E-B616248BE943}</UniqueIdentifier>
     </Filter>
     <Filter Include="Blocks\Cinder-Sdi\src">
-      <UniqueIdentifier>{61F1AA61-1195-4010-98A3-C2660D93F0D2}</UniqueIdentifier>
+      <UniqueIdentifier>{DE6931E1-AF24-4449-B968-B791619BD70E}</UniqueIdentifier>
     </Filter>
     <Filter Include="Blocks\Cinder-Sdi\include">
-      <UniqueIdentifier>{64A23209-1A2F-4F0D-ABF0-399DB2D69DA5}</UniqueIdentifier>
+      <UniqueIdentifier>{75A9A9AB-3A83-4425-9425-51FD88EA4F20}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\BasicCaptureApp.cpp">
+    <ClCompile Include="..\src\OutputSampleApp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\BasicCaptureApp.cpp">
+    <ClCompile Include="..\src\OutputSampleApp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClInclude Include="..\include\Resources.h">
