@@ -63,8 +63,9 @@ namespace media {
 		DeckLinkDeviceDiscovery( std::function<void( IDeckLink*, size_t )> deviceCallback );
 		virtual ~DeckLinkDeviceDiscovery();
 
+		IDeckLink*										getDevice( size_t index ) const;
 		std::string										getDeviceName( IDeckLink* device );
-		ci::gl::GlslProgRef								getYUV2RGBShader() { return mGlslYUV2RGB; }
+		ci::gl::GlslProgRef								getYUV2RGBShader() const { return mGlslYUV2RGB; }
 
 		// IDeckLinkDeviceNotificationCallback interface
 		virtual HRESULT	STDMETHODCALLTYPE	DeckLinkDeviceArrived(/* in */ IDeckLink* deckLink );
@@ -84,7 +85,8 @@ namespace media {
 		// so treat it as RGBA 4:4:4:4 by halving the width and using GL_RGBA internal format.
 		ci::gl::GlslProgRef			mGlslYUV2RGB;
 
-		std::function<void( IDeckLink*, size_t )> mDeviceArrivedCallback;
+		std::function<void( IDeckLink*, size_t )>	mDeviceArrivedCallback;
+		std::unordered_map<size_t, IDeckLink*>		mDevices;
 	};
 
 	class DecklinkExc : public ci::Exception {

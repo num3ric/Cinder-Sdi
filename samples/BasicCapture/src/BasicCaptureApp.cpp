@@ -16,6 +16,7 @@ public:
 	BasicCaptureApp();
 	void update() override;
 	void draw() override;
+	void keyDown( KeyEvent event ) override;
 
 	void deviceArrived( IDeckLink * decklink, size_t index );
 
@@ -66,6 +67,16 @@ void BasicCaptureApp::draw()
 		gl::draw( gl::Texture2d::create( *mSurface ), mSurface->getBounds(), app::getWindowBounds() );
 	}
 	gl::drawString( std::to_string( getAverageFps() ), app::getWindowCenter() );
+}
+
+void BasicCaptureApp::keyDown(KeyEvent event)
+{
+	auto code = event.getCode();
+	if( code >= KeyEvent::KEY_1 && code <= KeyEvent::KEY_4 ) {
+		auto index = static_cast<size_t>( code - KeyEvent::KEY_1 );
+		mDevice.reset( new DeckLinkDevice{ mDeviceDiscovery->getDevice( index ) } );
+		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30 );
+	}
 }
 
 void prepareSettings( App::Settings* settings )

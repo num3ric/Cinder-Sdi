@@ -74,6 +74,15 @@ DeckLinkDeviceDiscovery::~DeckLinkDeviceDiscovery()
 		m_deckLinkDiscovery->Release();
 		m_deckLinkDiscovery = NULL;
 	}
+
+	for( auto& kv : mDevices ) {
+		kv.second->Release();
+	}
+}
+
+IDeckLink * DeckLinkDeviceDiscovery::getDevice( size_t index ) const
+{
+	return mDevices.at( index );
 }
 
 std::string DeckLinkDeviceDiscovery::getDeviceName( IDeckLink * device )
@@ -107,6 +116,9 @@ HRESULT     DeckLinkDeviceDiscovery::DeckLinkDeviceArrived( IDeckLink* decklink 
 	}
 
 	CI_LOG_I( "Device " << getDeviceName( decklink ) << " with index " << index << " arrived." );
+
+	mDevices[index] = decklink;
+	decklink->AddRef();
 
 	mDeviceArrivedCallback( decklink, static_cast<size_t>( index ) );
 	return S_OK;

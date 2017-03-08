@@ -52,7 +52,7 @@ OutputSampleApp::OutputSampleApp()
 void OutputSampleApp::deviceArrived( IDeckLink * decklink, size_t index )
 {
 	// For now, we only test the first device arrived.
-	if( index == 0 ) {
+	if( index == 3 ) {
 		try {
 			mDevice = make_shared<DeckLinkDevice>( decklink );
 			mDevice->getOutput()->start();
