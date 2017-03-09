@@ -19,9 +19,12 @@ public:
 	void keyDown( KeyEvent event ) override;
 
 	void deviceArrived( IDeckLink * decklink, size_t index );
+	void frameArrived( media::VideoFrameBGRA * frame );
 
 	DeckLinkDeviceDiscoveryRef	mDeviceDiscovery;
 	DeckLinkDeviceRef			mDevice;
+
+	std::mutex					mFrameLock;
 	SurfaceRef					mSurface;
 };
 
@@ -33,7 +36,6 @@ BasicCaptureApp::BasicCaptureApp()
 		mDeviceDiscovery.reset();
 	} );
 
-	//gl::enableVerticalSync( false );
 	gl::enableAlphaBlending();
 }
 
@@ -45,7 +47,8 @@ void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
 
 	try {
 		mDevice = make_shared<DeckLinkDevice>( decklink );
-		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30 );
+		auto callback = std::bind( &BasicCaptureApp::frameArrived, this, _1 );
+		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30, callback );
 		CI_LOG_I( "Starting sdi device: " << index );
 	}
 	catch( DecklinkExc& exc ) {
@@ -53,20 +56,25 @@ void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
 	}
 }
 
+void BasicCaptureApp::frameArrived( media::VideoFrameBGRA * frame )
+{
+	/* Note that both device and frame callbacks are triggered from DeckLink worker threads, hence the mutex here. */
+	std::lock_guard<std::mutex> lock{ mFrameLock };
+	frame->getSurface( mSurface );
+}
+
 void BasicCaptureApp::update()
 {
-	if( mDevice )
-		mDevice->getInput()->getSurface( mSurface );
 }
 
 void BasicCaptureApp::draw()
 {
 	gl::clear();
 
+	std::lock_guard<std::mutex> lock{ mFrameLock };
 	if( mSurface ) {
 		gl::draw( gl::Texture2d::create( *mSurface ), mSurface->getBounds(), app::getWindowBounds() );
 	}
-	gl::drawString( std::to_string( getAverageFps() ), app::getWindowCenter() );
 }
 
 void BasicCaptureApp::keyDown(KeyEvent event)
@@ -75,14 +83,13 @@ void BasicCaptureApp::keyDown(KeyEvent event)
 	if( code >= KeyEvent::KEY_1 && code <= KeyEvent::KEY_4 ) {
 		auto index = static_cast<size_t>( code - KeyEvent::KEY_1 );
 		mDevice.reset( new DeckLinkDevice{ mDeviceDiscovery->getDevice( index ) } );
-		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30 );
+		auto callback = std::bind( &BasicCaptureApp::frameArrived, this, _1 );
+		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30, callback );
 	}
 }
 
 void prepareSettings( App::Settings* settings )
 {
-	//settings->setWindowSize( 1920, 1080 );
-	//settings->disableFrameRate();
 	settings->setWindowSize( 0.5 * 1920, 0.5 * 1080 );
 }
 

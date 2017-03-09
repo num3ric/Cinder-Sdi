@@ -60,8 +60,8 @@ bool DeckLinkOutput::start()
 	pDLDisplayMode->GetFrameRate( &frameDuration, &frameTimescale );
 
 	uiFPS = ((frameTimescale + (frameDuration - 1)) / frameDuration);
-	//if( mDeckLinkOutput->EnableVideoOutput( pDLDisplayMode->GetDisplayMode(), bmdVideoOutputFlagDefault ) != S_OK )
-	if( mDeckLinkOutput->EnableVideoOutput( bmdModeHD1080p2398, bmdVideoOutputFlagDefault ) != S_OK )
+	if( mDeckLinkOutput->EnableVideoOutput( pDLDisplayMode->GetDisplayMode(), bmdVideoOutputFlagDefault ) != S_OK )
+	//if( mDeckLinkOutput->EnableVideoOutput( bmdModeHD1080p2398, bmdVideoOutputFlagDefault ) != S_OK )
 		goto bail;
 
 	uiTotalFrames = 0;

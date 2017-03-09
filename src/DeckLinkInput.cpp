@@ -5,46 +5,10 @@
 
 using namespace media;
 
-class VideoFrameBGRA : public IDeckLinkVideoFrame {
-public:
-	VideoFrameBGRA( long width, long height )
-		: mWidth{ width }, mHeight{ height }
-	{
-		mData.resize( height * width * 4 );
-	}
-
-	uint8_t * data() const { return (uint8_t*)mData.data(); }
-
-	//override these methods for virtual
-	virtual long			GetWidth( void ) { return mWidth; }
-	virtual long			GetHeight( void ) { return mHeight; }
-	virtual long			GetRowBytes( void ) { return mWidth * 4; }
-	virtual BMDPixelFormat	GetPixelFormat( void ) { return bmdFormat8BitBGRA; }
-	virtual BMDFrameFlags	GetFlags( void ) { return 0; }
-	virtual HRESULT			GetBytes( void **buffer )
-	{
-		*buffer = (void*)mData.data();
-		return S_OK;
-	}
-
-	virtual HRESULT			GetTimecode( BMDTimecodeFormat format, IDeckLinkTimecode **timecode ) { return E_NOINTERFACE; };
-	virtual HRESULT			GetAncillaryData( IDeckLinkVideoFrameAncillary **ancillary ) { return E_NOINTERFACE; };
-	virtual HRESULT			QueryInterface( REFIID iid, LPVOID *ppv ) { return E_NOINTERFACE; }
-	virtual ULONG			AddRef() { return 1; }
-	virtual ULONG			Release() { return 1; }
-private:
-	long mWidth, mHeight;
-	std::vector<uint8_t> mData;
-};
-
 
 DeckLinkInput::DeckLinkInput( DeckLinkDevice * device )
 : mDevice{ device }
 , mDecklinkInput( NULL )
-, mSize()
-, mNewFrame{ false }
-, mReadSurface{ false }
-, mSurface{ nullptr }
 , m_refCount{ 1 }
 , mCurrentlyCapturing{ false }
 {
@@ -82,10 +46,12 @@ DeckLinkInput::~DeckLinkInput()
 	}
 }
 
-bool DeckLinkInput::start( BMDDisplayMode videoMode )
+bool DeckLinkInput::start( BMDDisplayMode videoMode, ReadFrameCallback callback )
 {
-	if( mCurrentlyCapturing )
+	if( mCurrentlyCapturing ) {
+		CI_LOG_W( "Already capturing, aborting start." );
 		return false;
+	}
 
 	BMDVideoInputFlags videoInputFlags = bmdVideoInputFlagDefault;
 	if( mDevice->isFormatDetectionSupported() )
@@ -105,7 +71,7 @@ bool DeckLinkInput::start( BMDDisplayMode videoMode )
 
 	// Set capture callback
 	mDecklinkInput->SetCallback( this );
-
+	mReadFrameCallback = callback;
 	mCurrentlyCapturing = true;
 	return true;
 }
@@ -167,35 +133,12 @@ HRESULT DeckLinkInput::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame, 
 
 	if( (frame->GetFlags() & bmdFrameHasNoInputSource) == 0 ) {
 
-		std::lock_guard<std::mutex> lock( mMutex );
-
-		// Get the various timecodes and userbits for this frame
-		getAncillaryDataFromFrame( frame, bmdTimecodeVITC, mTimecode.vitcF1Timecode, mTimecode.vitcF1UserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeVITCField2, mTimecode.vitcF2Timecode, mTimecode.vitcF2UserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeRP188VITC1, mTimecode.rp188vitc1Timecode, mTimecode.rp188vitc1UserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeRP188LTC, mTimecode.rp188ltcTimecode, mTimecode.rp188ltcUserBits );
-		getAncillaryDataFromFrame( frame, bmdTimecodeRP188VITC2, mTimecode.rp188vitc2Timecode, mTimecode.rp188vitc2UserBits );
-
-		mBuffer.resize( frame->GetRowBytes() * frame->GetHeight() );
-		void * data;
-		frame->GetBytes( &data );
-		std::memcpy( mBuffer.data(), data, mBuffer.size() );
-
-		if( mReadSurface ) {
-			// // YUV 4:2:2 channel
-			//ci::Channel16u yuvChannel{ frame->GetWidth() / 2, frame->GetHeight(), static_cast<ptrdiff_t>( frame->GetRowBytes() ), 2, static_cast<uint16_t*>( data ) };
-			//std::memcpy( yuvChannel.getData(), data, frame->GetRowBytes() * frame->GetHeight() );
-			//mSurface = ci::Surface8u::create( yuvChannel );
-
-			VideoFrameBGRA videoFrame{ frame->GetWidth(), frame->GetHeight() };
-			DeckLinkDeviceDiscovery::sVideoConverter->ConvertFrame( frame, &videoFrame );
-			if( mSurface == nullptr ) {
-				mSurface = ci::Surface8u::create( frame->GetWidth(), frame->GetHeight(), true, ci::SurfaceChannelOrder::BGRA );
-			}
-			std::memcpy( mSurface->getData(), videoFrame.data(), videoFrame.GetRowBytes() * videoFrame.GetHeight() );
+		VideoFrameBGRA videoFrame{ frame->GetWidth(), frame->GetHeight() };
+		DeckLinkDeviceDiscovery::sVideoConverter->ConvertFrame( frame, &videoFrame );
+		if( mReadFrameCallback ) {
+			mReadFrameCallback( &videoFrame );
 		}
 
-		mNewFrame = true;
 		return S_OK;
 	}
 	return S_FALSE;
@@ -224,50 +167,6 @@ void DeckLinkInput::getAncillaryDataFromFrame( IDeckLinkVideoInputFrame* videoFr
 		timecodeString = "";
 		userBitsString = "";
 	}
-}
-
-Timecodes DeckLinkInput::getTimecode() const
-{
-	std::lock_guard<std::mutex> lock( mMutex );
-	return mTimecode;
-}
-
-bool DeckLinkInput::getTexture( ci::gl::Texture2dRef& texture, Timecodes * timecodes )
-{
-	if( !mNewFrame )
-		return false;
-
-	mNewFrame = false;
-
-	std::lock_guard<std::mutex> lock( mMutex );
-	texture = ci::gl::Texture2d::create( mBuffer.data(), GL_BGRA, mSize.x / 2, mSize.y, ci::gl::Texture::Format().internalFormat( GL_RGBA ).dataType( GL_UNSIGNED_INT_8_8_8_8_REV ) );
-
-	if( timecodes )
-		*timecodes = mTimecode;
-
-	return true;
-}
-
-bool DeckLinkInput::getSurface( ci::SurfaceRef& surface, Timecodes * timecodes )
-{
-	mReadSurface = true;
-	if( !mNewFrame || !mSurface )
-		return false;
-
-	mNewFrame = false;
-
-	std::lock_guard<std::mutex> lock( mMutex );
-	if( surface && surface->getSize() == mSurface->getSize() ) {
-		surface->copyFrom( *mSurface, mSurface->getBounds() );
-	}
-	else {
-		surface = ci::Surface8u::create( *mSurface );
-	}
-
-	if( timecodes )
-		*timecodes = mTimecode;
-
-	return true;
 }
 
 HRESULT	STDMETHODCALLTYPE DeckLinkInput::QueryInterface( REFIID iid, LPVOID *ppv )
@@ -322,3 +221,10 @@ ULONG STDMETHODCALLTYPE DeckLinkInput::Release( void )
 	return newRefValue;
 }
 
+void VideoFrameBGRA::getSurface( ci::SurfaceRef & surface )
+{
+	if( surface == nullptr || surface->getSize() != GetSize() ) {
+		surface = ci::Surface8u::create( GetWidth(), GetHeight(), true, ci::SurfaceChannelOrder::BGRA );
+	}
+	std::memcpy( surface->getData(), data(), GetRowBytes() * GetHeight() );
+}

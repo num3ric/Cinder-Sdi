@@ -44,6 +44,41 @@
 
 namespace media {
 
+	class VideoFrameBGRA : public IDeckLinkVideoFrame {
+	public:
+		VideoFrameBGRA( long width, long height )
+			: mWidth{ width }, mHeight{ height }
+		{
+			mData.resize( height * width * 4 );
+		}
+
+		void getSurface( ci::SurfaceRef& surface );
+
+		uint8_t * data() const { return (uint8_t*)mData.data(); }
+
+		//override these methods for virtual
+		glm::ivec2				GetSize() { return glm::ivec2{ mWidth,mHeight }; }
+		virtual long			GetWidth( void ) { return mWidth; }
+		virtual long			GetHeight( void ) { return mHeight; }
+		virtual long			GetRowBytes( void ) { return mWidth * 4; }
+		virtual BMDPixelFormat	GetPixelFormat( void ) { return bmdFormat8BitBGRA; }
+		virtual BMDFrameFlags	GetFlags( void ) { return 0; }
+		virtual HRESULT			GetBytes( void **buffer )
+		{
+			*buffer = (void*)mData.data();
+			return S_OK;
+		}
+
+		virtual HRESULT			GetTimecode( BMDTimecodeFormat format, IDeckLinkTimecode **timecode ) { return E_NOINTERFACE; };
+		virtual HRESULT			GetAncillaryData( IDeckLinkVideoFrameAncillary **ancillary ) { return E_NOINTERFACE; };
+		virtual HRESULT			QueryInterface( REFIID iid, LPVOID *ppv ) { return E_NOINTERFACE; }
+		virtual ULONG			AddRef() { return 1; }
+		virtual ULONG			Release() { return 1; }
+	private:
+		long mWidth, mHeight;
+		std::vector<uint8_t> mData;
+	};
+
 	typedef struct {
 		// VITC timecodes and user bits for field 1 & 2
 		std::string vitcF1Timecode;
@@ -62,6 +97,7 @@ namespace media {
 
 	class DeckLinkDevice;
 
+	typedef std::function<void( VideoFrameBGRA * frame )> ReadFrameCallback;
 	typedef std::shared_ptr<class DeckLinkInput> DeckLinkInputRef;
 	class DeckLinkInput : public IDeckLinkInputCallback
 	{
@@ -69,15 +105,11 @@ namespace media {
 		DeckLinkInput( DeckLinkDevice * device );
 		~DeckLinkInput();
 
-		bool						start( BMDDisplayMode videoMode );
+		bool						start( BMDDisplayMode videoMode, ReadFrameCallback callback );
 		void						stop();
 		bool						isCapturing();
 
 		std::vector<std::string>	getDisplayModeNames();
-
-		Timecodes					getTimecode() const;
-		bool						getTexture( ci::gl::Texture2dRef& texture, Timecodes * timecodes = nullptr );
-		bool						getSurface( ci::SurfaceRef& surface, Timecodes * timecodes = nullptr );
 	private:
 		IDeckLinkInput *					mDecklinkInput;
 		std::vector<IDeckLinkDisplayMode*>	mModesList;
@@ -94,14 +126,8 @@ namespace media {
 
 		mutable std::mutex					mMutex;
 		std::atomic_bool					mCurrentlyCapturing;
-		std::atomic_bool					mNewFrame;
-		std::atomic_bool					mReadSurface;
 
-		glm::ivec2							mSize;
-		ci::SurfaceRef						mSurface;
-		std::vector<uint16_t>				mBuffer;
-
-		Timecodes							mTimecode;
+		ReadFrameCallback					mReadFrameCallback;
 
 		DeckLinkDevice *					mDevice;
 

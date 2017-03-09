@@ -45,14 +45,14 @@ OutputSampleApp::OutputSampleApp()
 	mCamera.setPivotDistance( 10.0f );
 	mCamera.setEyePoint( vec3( 0, 0, 10.f ) );
 	mCamera.lookAt( vec3( 0 ) );
+	mCamera.setAspectRatio( app::getWindowAspectRatio() );
 	gl::enableDepth();
-	//mCamera.setPerspective( calcSideFov( 18.747f, 13.365f ), app::getWindowAspectRatio(), 0.1f, 1000.0f );
 }
 
 void OutputSampleApp::deviceArrived( IDeckLink * decklink, size_t index )
 {
 	// For now, we only test the first device arrived.
-	if( index == 3 ) {
+	if( index == 2 ) {
 		try {
 			mDevice = make_shared<DeckLinkDevice>( decklink );
 			mDevice->getOutput()->start();
@@ -90,7 +90,7 @@ void OutputSampleApp::mouseDrag( MouseEvent event )
 
 void prepareSettings( App::Settings* settings )
 {
-	settings->setWindowSize( 720, 486 );
+	settings->setWindowSize( 0.5 * 1920, 0.5 * 1080 );
 	//settings->disableFrameRate();
 }
 
