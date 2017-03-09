@@ -46,16 +46,15 @@ void DeckLinkOutput::sendWindowSurface()
 
 bool DeckLinkOutput::start( BMDDisplayMode videoMode )
 {
-	bool								bSuccess = false;
-	IDeckLinkDisplayModeIterator*		pDLDisplayModeIterator;
-	IDeckLinkDisplayMode*				pDLDisplayMode = NULL;
-
+	bool								success = false;
+	IDeckLinkDisplayModeIterator*		displayModeIterator;
+	IDeckLinkDisplayMode*				displayMode = NULL;
 	uiTotalFrames = 0;
 
 	bool found = false;
-	if( mDeckLinkOutput->GetDisplayModeIterator( &pDLDisplayModeIterator ) == S_OK ) {
-		while( pDLDisplayModeIterator->Next( &pDLDisplayMode ) == S_OK ) {
-			if( pDLDisplayMode->GetDisplayMode() == videoMode ) {
+	if( mDeckLinkOutput->GetDisplayModeIterator( &displayModeIterator ) == S_OK ) {
+		while( displayModeIterator->Next( &displayMode ) == S_OK ) {
+			if( displayMode->GetDisplayMode() == videoMode ) {
 				found = true;
 				break;
 			}
@@ -63,34 +62,32 @@ bool DeckLinkOutput::start( BMDDisplayMode videoMode )
 	}
 
 	if( found ) {
-		mResolution.x = pDLDisplayMode->GetWidth();
-		mResolution.y = pDLDisplayMode->GetHeight();
-		pDLDisplayMode->GetFrameRate( &frameDuration, &frameTimescale );
+		mResolution.x = displayMode->GetWidth();
+		mResolution.y = displayMode->GetHeight();
+		displayMode->GetFrameRate( &frameDuration, &frameTimescale );
 		uiFPS = ( ( frameTimescale + ( frameDuration - 1 ) ) / frameDuration );
-		if( mDeckLinkOutput->EnableVideoOutput( videoMode, bmdVideoOutputFlagDefault ) != S_OK )
-			goto bail;
-
-		setPreroll();
-		mDeckLinkOutput->StartScheduledPlayback( 0, 100, 1.0 );
+		if( mDeckLinkOutput->EnableVideoOutput( videoMode, bmdVideoOutputFlagDefault ) == S_OK ) {
+			setPreroll();
+			mDeckLinkOutput->StartScheduledPlayback( 0, 100, 1.0 );
+			success = true;
+		}
+		else {
+			CI_LOG_E( "Failed to enable video output." );
+		}
 	}
 	else {
 		CI_LOG_E( "Cannot find video mode." );
-		goto bail;
 	}
 
-	bSuccess = true;
-bail:
-	if( pDLDisplayMode )
-	{
-		pDLDisplayMode->Release();
-		pDLDisplayMode = NULL;
+	if( displayMode ) {
+		displayMode->Release();
+		displayMode = NULL;
 	}
-	if( pDLDisplayModeIterator )
-	{
-		pDLDisplayModeIterator->Release();
-		pDLDisplayModeIterator = NULL;
+	if( displayModeIterator ) {
+		displayModeIterator->Release();
+		displayModeIterator = NULL;
 	}
-	return bSuccess;
+	return success;
 }
 
 void DeckLinkOutput::stop()
