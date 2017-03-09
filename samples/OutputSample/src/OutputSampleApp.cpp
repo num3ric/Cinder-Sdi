@@ -46,6 +46,8 @@ OutputSampleApp::OutputSampleApp()
 	mCamera.setEyePoint( vec3( 0, 0, 10.f ) );
 	mCamera.lookAt( vec3( 0 ) );
 	mCamera.setAspectRatio( app::getWindowAspectRatio() );
+
+	gl::enableVerticalSync( false );
 	gl::enableDepth();
 }
 
@@ -55,7 +57,7 @@ void OutputSampleApp::deviceArrived( IDeckLink * decklink, size_t index )
 	if( index == 2 ) {
 		try {
 			mDevice = make_shared<DeckLinkDevice>( decklink );
-			mDevice->getOutput()->start();
+			mDevice->getOutput()->start( BMDDisplayMode::bmdModeHD720p60 );
 		}
 		catch( DecklinkExc& exc ) {
 			CI_LOG_EXCEPTION( "", exc );
@@ -74,7 +76,7 @@ void OutputSampleApp::draw()
 	gl::drawColorCube( vec3( 0 ), vec3( 3 ) );
 
 	if( mDevice ) {
-		mDevice->getOutput()->setWindowSurface( app::copyWindowSurface() );
+		mDevice->getOutput()->sendWindowSurface();
 	}
 }
 
@@ -90,7 +92,8 @@ void OutputSampleApp::mouseDrag( MouseEvent event )
 
 void prepareSettings( App::Settings* settings )
 {
-	settings->setWindowSize( 0.5 * 1920, 0.5 * 1080 );
+	settings->setWindowSize( 1280, 720 );
+	settings->setFrameRate( 60.0f );
 	//settings->disableFrameRate();
 }
 

@@ -30,45 +30,53 @@ DeckLinkOutput::~DeckLinkOutput()
 	}
 }
 
-void DeckLinkOutput::setWindowSurface( const ci::Surface& surface )
+void DeckLinkOutput::sendWindowSurface()
 {
 	std::lock_guard<std::mutex> lock( mMutex );
-	if( ! mWindowSurface || mWindowSurface->getSize() != surface.getSize() ) {
-		mWindowSurface = ci::Surface8u::create( surface.getWidth(), surface.getHeight(), true, ci::SurfaceChannelOrder::BGRA );
+	if( ! mWindowSurface || mWindowSurface->getSize() != mResolution ) {
+		mWindowSurface = ci::Surface8u::create( mResolution.x, mResolution.y, true, ci::SurfaceChannelOrder::BGRA );
 	}
-
-	mWindowSurface->copyFrom( surface, surface.getBounds() );
+	GLint oldPackAlignment;
+	glFlush();
+	glGetIntegerv( GL_PACK_ALIGNMENT, &oldPackAlignment );
+	glPixelStorei( GL_PACK_ALIGNMENT, 1 );
+	glReadPixels( 0, 0, mResolution.x, mResolution.y, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, mWindowSurface->getData() );
+	glPixelStorei( GL_PACK_ALIGNMENT, oldPackAlignment );
 }
 
-bool DeckLinkOutput::start()
+bool DeckLinkOutput::start( BMDDisplayMode videoMode )
 {
 	bool								bSuccess = false;
 	IDeckLinkDisplayModeIterator*		pDLDisplayModeIterator;
 	IDeckLinkDisplayMode*				pDLDisplayMode = NULL;
 
-	if( mDeckLinkOutput->GetDisplayModeIterator( &pDLDisplayModeIterator ) == S_OK )
-	{
-		if( pDLDisplayModeIterator->Next( &pDLDisplayMode ) != S_OK )
-		{
-			MessageBox( NULL, _T( "Cannot find video mode." ), _T( "DeckLink error." ), MB_OK );
-			goto bail;
+	uiTotalFrames = 0;
+
+	bool found = false;
+	if( mDeckLinkOutput->GetDisplayModeIterator( &pDLDisplayModeIterator ) == S_OK ) {
+		while( pDLDisplayModeIterator->Next( &pDLDisplayMode ) == S_OK ) {
+			if( pDLDisplayMode->GetDisplayMode() == videoMode ) {
+				found = true;
+				break;
+			}
 		}
 	}
 
-	uiFrameWidth = pDLDisplayMode->GetWidth();
-	uiFrameHeight = pDLDisplayMode->GetHeight();
-	pDLDisplayMode->GetFrameRate( &frameDuration, &frameTimescale );
+	if( found ) {
+		mResolution.x = pDLDisplayMode->GetWidth();
+		mResolution.y = pDLDisplayMode->GetHeight();
+		pDLDisplayMode->GetFrameRate( &frameDuration, &frameTimescale );
+		uiFPS = ( ( frameTimescale + ( frameDuration - 1 ) ) / frameDuration );
+		if( mDeckLinkOutput->EnableVideoOutput( videoMode, bmdVideoOutputFlagDefault ) != S_OK )
+			goto bail;
 
-	uiFPS = ((frameTimescale + (frameDuration - 1)) / frameDuration);
-	if( mDeckLinkOutput->EnableVideoOutput( pDLDisplayMode->GetDisplayMode(), bmdVideoOutputFlagDefault ) != S_OK )
-	//if( mDeckLinkOutput->EnableVideoOutput( bmdModeHD1080p2398, bmdVideoOutputFlagDefault ) != S_OK )
+		setPreroll();
+		mDeckLinkOutput->StartScheduledPlayback( 0, 100, 1.0 );
+	}
+	else {
+		CI_LOG_E( "Cannot find video mode." );
 		goto bail;
-
-	uiTotalFrames = 0;
-
-	setPreroll();
-
-	mDeckLinkOutput->StartScheduledPlayback( 0, 100, 1.0 );
+	}
 
 	bSuccess = true;
 bail:
@@ -99,7 +107,7 @@ void DeckLinkOutput::setPreroll()
 	for( unsigned i = 0; i < 3; i++ )
 	{
 		// Flip frame vertical, because OpenGL rendering starts from left bottom corner
-		if( mDeckLinkOutput->CreateVideoFrame( uiFrameWidth, uiFrameHeight, uiFrameWidth * 4, bmdFormat8BitBGRA, bmdFrameFlagDefault, &pDLVideoFrame ) != S_OK )
+		if( mDeckLinkOutput->CreateVideoFrame( mResolution.x, mResolution.y, mResolution.x * 4, bmdFormat8BitBGRA, bmdFrameFlagFlipVertical, &pDLVideoFrame ) != S_OK )
 			goto bail;
 
 		if( mDeckLinkOutput->ScheduleVideoFrame( pDLVideoFrame, (uiTotalFrames * frameDuration), frameDuration, frameTimescale ) != S_OK )

@@ -52,8 +52,8 @@ namespace media {
 		DeckLinkOutput( DeckLinkDevice * device );
 		~DeckLinkOutput();
 
-		void setWindowSurface( const ci::Surface& surface );
-		bool start();
+		void sendWindowSurface();
+		bool start( BMDDisplayMode videoMode );
 		void stop();
 
 	private:
@@ -70,8 +70,7 @@ namespace media {
 		DeckLinkDevice *	mDevice;
 
 		IDeckLinkOutput*			mDeckLinkOutput;
-		unsigned __int32			uiFrameWidth;
-		unsigned __int32			uiFrameHeight;
+		glm::ivec2					mResolution;
 		BMDTimeValue				frameDuration;
 		BMDTimeScale				frameTimescale;
 		unsigned __int32			uiFPS;
