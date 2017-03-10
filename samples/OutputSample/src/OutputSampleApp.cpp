@@ -27,6 +27,8 @@ class OutputSampleApp : public App {
 	DeckLinkDeviceDiscoveryRef	mDeviceDiscovery;
 	DeckLinkDeviceRef			mDevice;
 
+	gl::FboRef					mFbo;
+
 	Arcball				mArcball;
 
 	CameraUi			mCamUi;
@@ -47,36 +49,44 @@ OutputSampleApp::OutputSampleApp()
 	mCamera.lookAt( vec3( 0 ) );
 	mCamera.setAspectRatio( app::getWindowAspectRatio() );
 
+	mFbo = gl::Fbo::create( app::getWindowWidth(),
+							app::getWindowHeight(),
+							gl::Fbo::Format()
+								.colorTexture( gl::Texture2d::Format().internalFormat( GL_RGBA ).dataType( GL_UNSIGNED_INT_8_8_8_8_REV ) ) );
+
+
 	gl::enableVerticalSync( false );
 	gl::enableDepth();
 }
 
 void OutputSampleApp::deviceArrived( IDeckLink * decklink, size_t index )
 {
-	// For now, we only test the first device arrived.
-	if( index == 2 ) {
-		try {
-			mDevice = make_shared<DeckLinkDevice>( decklink );
-			mDevice->getOutput()->start( BMDDisplayMode::bmdModeHD720p60 );
-		}
-		catch( DecklinkExc& exc ) {
-			CI_LOG_EXCEPTION( "", exc );
-		}
+	try {
+		mDevice = make_shared<DeckLinkDevice>( decklink );
+		mDevice->getOutput()->start( BMDDisplayMode::bmdModeHD720p60 );
+		CI_LOG_I( "Starting output device." );
+	}
+	catch( DecklinkExc& exc ) {
+		CI_LOG_EXCEPTION( "", exc );
 	}
 }
 
 void OutputSampleApp::update()
 {
+	gl::ScopedMatrices push;
+	gl::ScopedFramebuffer bind{ mFbo };
+	gl::clear();
+	gl::setMatrices( mCamera );
+	gl::drawColorCube( vec3( 0 ), vec3( 3 ) );
 }
 
 void OutputSampleApp::draw()
 {
-	gl::clear( Color( 0, 0, 0 ) );
-	gl::setMatrices( mCamera );
-	gl::drawColorCube( vec3( 0 ), vec3( 3 ) );
+	gl::clear();
+	gl::draw( mFbo->getColorTexture() );
 
 	if( mDevice ) {
-		mDevice->getOutput()->sendWindowSurface();
+		mDevice->getOutput()->sendTexture( mFbo->getColorTexture() );
 	}
 }
 
@@ -93,8 +103,7 @@ void OutputSampleApp::mouseDrag( MouseEvent event )
 void prepareSettings( App::Settings* settings )
 {
 	settings->setWindowSize( 1280, 720 );
-	settings->setFrameRate( 60.0f );
-	//settings->disableFrameRate();
+	settings->setResizable( false );
 }
 
 CINDER_APP( OutputSampleApp, RendererGl, prepareSettings )

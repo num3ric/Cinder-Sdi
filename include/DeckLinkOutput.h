@@ -52,6 +52,8 @@ namespace media {
 		DeckLinkOutput( DeckLinkDevice * device );
 		~DeckLinkOutput();
 
+		void sendSurface( const ci::Surface& surface );
+		void sendTexture( const ci::gl::Texture2dRef& texture );
 		void sendWindowSurface();
 		bool start( BMDDisplayMode videoMode );
 		void stop();

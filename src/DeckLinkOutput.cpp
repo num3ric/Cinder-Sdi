@@ -30,6 +30,32 @@ DeckLinkOutput::~DeckLinkOutput()
 	}
 }
 
+void DeckLinkOutput::sendSurface( const ci::Surface & surface )
+{
+	std::lock_guard<std::mutex> lock( mMutex );
+	if( ! mWindowSurface || mWindowSurface->getSize() != mResolution ) {
+		mWindowSurface = ci::Surface8u::create( mResolution.x, mResolution.y, true, ci::SurfaceChannelOrder::BGRA );
+	}
+
+	if( surface.getSize() == mWindowSurface->getSize() && surface.getChannelOrder() == mWindowSurface->getChannelOrder() ) {
+		mWindowSurface->copyFrom( surface, surface.getBounds() );
+	}
+	else {
+		CI_LOG_E( "Incompatible surface." );
+	}
+}
+
+void DeckLinkOutput::sendTexture( const ci::gl::Texture2dRef & texture )
+{
+	std::lock_guard<std::mutex> lock( mMutex );
+	if( ! mWindowSurface || mWindowSurface->getSize() != mResolution ) {
+		mWindowSurface = ci::Surface8u::create( mResolution.x, mResolution.y, true, ci::SurfaceChannelOrder::BGRA );
+	}
+
+	ci::gl::ScopedTextureBind tex0{ texture };
+	glGetTexImage( GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, mWindowSurface->getData() );
+}
+
 void DeckLinkOutput::sendWindowSurface()
 {
 	std::lock_guard<std::mutex> lock( mMutex );

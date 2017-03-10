@@ -75,6 +75,8 @@ void BasicCaptureApp::draw()
 	if( mSurface ) {
 		gl::draw( gl::Texture2d::create( *mSurface ), mSurface->getBounds(), app::getWindowBounds() );
 	}
+
+	app::console() << getAverageFps() << std::endl;
 }
 
 void BasicCaptureApp::keyDown(KeyEvent event)
