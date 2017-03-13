@@ -11,6 +11,7 @@ DeckLinkInput::DeckLinkInput( DeckLinkDevice * device )
 , mDecklinkInput( NULL )
 , m_refCount{ 1 }
 , mCurrentlyCapturing{ false }
+, mResolution{}
 {
 
 	IDeckLinkAttributes* deckLinkAttributes = NULL;
@@ -46,7 +47,25 @@ DeckLinkInput::~DeckLinkInput()
 	}
 }
 
-bool DeckLinkInput::start( BMDDisplayMode videoMode, ReadFrameCallback callback )
+bool DeckLinkInput::start( BMDDisplayMode videoMode, ReadBGRAFrameCallback callback )
+{
+	if( startImpl( videoMode ) ) {
+		mReadBRGACallback = callback;
+		return true;
+	}
+	return false;
+}
+
+bool DeckLinkInput::start( BMDDisplayMode videoMode, ReadRawFrameCallback callback )
+{
+	if( startImpl( videoMode ) ) {
+		mReadRawCallback = callback;
+		return true;
+	}
+	return false;
+}
+
+bool DeckLinkInput::startImpl( BMDDisplayMode videoMode )
 {
 	if( mCurrentlyCapturing ) {
 		CI_LOG_W( "Already capturing, aborting start." );
@@ -69,9 +88,10 @@ bool DeckLinkInput::start( BMDDisplayMode videoMode, ReadFrameCallback callback 
 		return false;
 	}
 
+	mResolution = mDevice->getDisplayModeResolution( videoMode );
+
 	// Set capture callback
 	mDecklinkInput->SetCallback( this );
-	mReadFrameCallback = callback;
 	mCurrentlyCapturing = true;
 	return true;
 }
@@ -97,7 +117,7 @@ bool DeckLinkInput::isCapturing()
 HRESULT DeckLinkInput::VideoInputFormatChanged(/* in */ BMDVideoInputFormatChangedEvents notificationEvents, /* in */ IDeckLinkDisplayMode *newMode, /* in */ BMDDetectedVideoInputFormatFlags detectedSignalFlags ) {
 
 	unsigned int	modeIndex = 0;
-	BMDPixelFormat	pixelFormat = bmdFormat10BitYUV;
+	BMDPixelFormat	pixelFormat = bmdFormat8BitYUV;
 
 	// Restart capture with the new video mode if told to
 	if( mDevice->isFormatDetectionSupported() ) {
@@ -123,6 +143,9 @@ HRESULT DeckLinkInput::VideoInputFormatChanged(/* in */ BMDVideoInputFormatChang
 			return S_OK;
 		}
 	}
+
+	mResolution = mDevice->getDisplayModeResolution( newMode->GetDisplayMode() );
+
 	return S_OK;
 }
 
@@ -133,10 +156,13 @@ HRESULT DeckLinkInput::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame, 
 
 	if( (frame->GetFlags() & bmdFrameHasNoInputSource) == 0 ) {
 
-		VideoFrameBGRA videoFrame{ frame->GetWidth(), frame->GetHeight() };
-		DeckLinkDeviceDiscovery::sVideoConverter->ConvertFrame( frame, &videoFrame );
-		if( mReadFrameCallback ) {
-			mReadFrameCallback( &videoFrame );
+		if( mReadBRGACallback ) {
+			VideoFrameBGRA videoFrame{ frame->GetWidth(), frame->GetHeight() };
+			DeckLinkDeviceDiscovery::sVideoConverter->ConvertFrame( frame, &videoFrame );
+			mReadBRGACallback( videoFrame );
+		}
+		else if( mReadRawCallback ) {
+			mReadRawCallback( frame );
 		}
 
 		return S_OK;

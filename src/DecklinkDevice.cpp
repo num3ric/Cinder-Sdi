@@ -114,7 +114,7 @@ inline std::string getDisplayModeString( BMDDisplayMode mode )
 	}
 }
 
-glm::ivec2 DeckLinkDevice::getDisplayModeBufferSize( BMDDisplayMode mode ) {
+glm::ivec2 DeckLinkDevice::getDisplayModeResolution( BMDDisplayMode mode ) {
 
 	if( mode == bmdModeNTSC2398
 		|| mode == bmdModeNTSC

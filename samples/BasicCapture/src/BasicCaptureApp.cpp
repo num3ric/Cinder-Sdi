@@ -9,7 +9,6 @@ using namespace ci;
 using namespace ci::app;
 using namespace std;
 using namespace std::placeholders;
-using namespace media;
 
 class BasicCaptureApp : public App {
 public:
@@ -19,17 +18,17 @@ public:
 	void keyDown( KeyEvent event ) override;
 
 	void deviceArrived( IDeckLink * decklink, size_t index );
-	void frameArrived( media::VideoFrameBGRA * frame );
+	void frameArrived( media::VideoFrameBGRA& frame );
 
-	DeckLinkDeviceDiscoveryRef	mDeviceDiscovery;
-	DeckLinkDeviceRef			mDevice;
+	media::DeckLinkDeviceDiscoveryRef	mDeviceDiscovery;
+	media::DeckLinkDeviceRef			mDevice;
 
 	std::mutex					mFrameLock;
 	SurfaceRef					mSurface;
 };
 
 BasicCaptureApp::BasicCaptureApp()
-	: mDeviceDiscovery{ new DeckLinkDeviceDiscovery{ std::bind( &BasicCaptureApp::deviceArrived, this, _1, _2 ) } }
+	: mDeviceDiscovery{ new media::DeckLinkDeviceDiscovery{ std::bind( &BasicCaptureApp::deviceArrived, this, _1, _2 ) } }
 {
 	getWindow()->getSignalClose().connect( [this] {
 		mDevice.reset();
@@ -46,21 +45,21 @@ void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
 		return;
 
 	try {
-		mDevice = make_shared<DeckLinkDevice>( decklink );
-		auto callback = std::bind( &BasicCaptureApp::frameArrived, this, _1 );
+		mDevice = make_shared<media::DeckLinkDevice>( decklink );
+		media::ReadBGRAFrameCallback callback = std::bind( &BasicCaptureApp::frameArrived, this, _1 );
 		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30, callback );
 		CI_LOG_I( "Starting sdi device: " << index );
 	}
-	catch( DecklinkExc& exc ) {
+	catch( media::DecklinkExc& exc ) {
 		CI_LOG_EXCEPTION( "", exc );
 	}
 }
 
-void BasicCaptureApp::frameArrived( media::VideoFrameBGRA * frame )
+void BasicCaptureApp::frameArrived( media::VideoFrameBGRA& frame )
 {
 	/* Note that both device and frame callbacks are triggered from DeckLink worker threads, hence the mutex here. */
 	std::lock_guard<std::mutex> lock{ mFrameLock };
-	frame->getSurface( mSurface );
+	frame.getSurface( mSurface );
 }
 
 void BasicCaptureApp::update()
@@ -75,8 +74,6 @@ void BasicCaptureApp::draw()
 	if( mSurface ) {
 		gl::draw( gl::Texture2d::create( *mSurface ), mSurface->getBounds(), app::getWindowBounds() );
 	}
-
-	app::console() << getAverageFps() << std::endl;
 }
 
 void BasicCaptureApp::keyDown(KeyEvent event)
@@ -84,7 +81,7 @@ void BasicCaptureApp::keyDown(KeyEvent event)
 	auto code = event.getCode();
 	if( code >= KeyEvent::KEY_1 && code <= KeyEvent::KEY_4 ) {
 		auto index = static_cast<size_t>( code - KeyEvent::KEY_1 );
-		mDevice.reset( new DeckLinkDevice{ mDeviceDiscovery->getDevice( index ) } );
+		mDevice.reset( new media::DeckLinkDevice{ mDeviceDiscovery->getDevice( index ) } );
 		auto callback = std::bind( &BasicCaptureApp::frameArrived, this, _1 );
 		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30, callback );
 	}

@@ -97,7 +97,9 @@ namespace media {
 
 	class DeckLinkDevice;
 
-	typedef std::function<void( VideoFrameBGRA * frame )> ReadFrameCallback;
+	typedef std::function<void( VideoFrameBGRA& frame )> ReadBGRAFrameCallback;
+	typedef std::function<void( IDeckLinkVideoInputFrame* frame )> ReadRawFrameCallback;
+
 	typedef std::shared_ptr<class DeckLinkInput> DeckLinkInputRef;
 	class DeckLinkInput : public IDeckLinkInputCallback
 	{
@@ -105,12 +107,16 @@ namespace media {
 		DeckLinkInput( DeckLinkDevice * device );
 		~DeckLinkInput();
 
-		bool						start( BMDDisplayMode videoMode, ReadFrameCallback callback );
+		bool						start( BMDDisplayMode videoMode, ReadBGRAFrameCallback callback );
+		bool						start( BMDDisplayMode videoMode, ReadRawFrameCallback callback );
 		void						stop();
 		bool						isCapturing();
 
+		const glm::ivec2&			getResolution() const { return mResolution; }
 		std::vector<std::string>	getDisplayModeNames();
 	private:
+		bool						startImpl( BMDDisplayMode videoMode );
+
 		IDeckLinkInput *					mDecklinkInput;
 		std::vector<IDeckLinkDisplayMode*>	mModesList;
 
@@ -127,9 +133,11 @@ namespace media {
 		mutable std::mutex					mMutex;
 		std::atomic_bool					mCurrentlyCapturing;
 
-		ReadFrameCallback					mReadFrameCallback;
+		ReadBGRAFrameCallback				mReadBRGACallback;
+		ReadRawFrameCallback				mReadRawCallback;
 
 		DeckLinkDevice *					mDevice;
+		glm::ivec2							mResolution;
 
 		ULONG								m_refCount;
 	};
