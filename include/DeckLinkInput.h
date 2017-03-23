@@ -116,7 +116,7 @@ namespace media {
 		std::vector<std::string>	getDisplayModeNames();
 	private:
 		bool						startImpl( BMDDisplayMode videoMode );
-
+		glm::ivec2					getDisplayModeResolution( BMDDisplayMode mode );
 		IDeckLinkInput *					mDecklinkInput;
 		std::vector<IDeckLinkDisplayMode*>	mModesList;
 

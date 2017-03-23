@@ -6,6 +6,17 @@
 using namespace media;
 
 
+glm::ivec2 DeckLinkInput::getDisplayModeResolution( BMDDisplayMode mode )
+{
+	for( const auto& decklinkMode : mModesList ) {
+		if( decklinkMode->GetDisplayMode() == mode ) {
+			return glm::ivec2( decklinkMode->GetWidth(), decklinkMode->GetHeight() );
+		}
+	}
+	CI_LOG_E( "No corresponding display mode found, returning zero resolution." );
+	return glm::ivec2( 0 );
+}
+
 DeckLinkInput::DeckLinkInput( DeckLinkDevice * device )
 : mDevice{ device }
 , mDecklinkInput( NULL )
@@ -88,7 +99,8 @@ bool DeckLinkInput::startImpl( BMDDisplayMode videoMode )
 		return false;
 	}
 
-	mResolution = mDevice->getDisplayModeResolution( videoMode );
+
+	mResolution = getDisplayModeResolution( videoMode );
 
 	// Set capture callback
 	mDecklinkInput->SetCallback( this );
@@ -143,8 +155,8 @@ HRESULT DeckLinkInput::VideoInputFormatChanged(/* in */ BMDVideoInputFormatChang
 			return S_OK;
 		}
 	}
-
-	mResolution = mDevice->getDisplayModeResolution( newMode->GetDisplayMode() );
+	
+	mResolution = glm::ivec2( newMode->GetWidth(), newMode->GetHeight() );
 
 	return S_OK;
 }

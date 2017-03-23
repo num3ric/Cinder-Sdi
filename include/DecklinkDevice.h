@@ -50,7 +50,6 @@ namespace media {
 		DeckLinkInput *				getInput() { return mInput.get(); }
 		DeckLinkOutput *			getOutput() { return mOutput.get(); }
 
-		glm::ivec2					getDisplayModeResolution( BMDDisplayMode mode );
 		bool						isFormatDetectionSupported();
 	private:
 		IDeckLink *							mDecklink;
