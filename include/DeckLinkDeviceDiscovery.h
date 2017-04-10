@@ -83,7 +83,7 @@ namespace media {
 
 		// The captured video is YCbCr 4:2:2 packed into a UYVY macropixel.  OpenGL has no YCbCr format
 		// so treat it as RGBA 4:4:4:4 by halving the width and using GL_RGBA internal format.
-		ci::gl::GlslProgRef			mGlslYUV2RGB;
+		ci::gl::GlslProgRef							mGlslYUV2RGB;
 
 		std::function<void( IDeckLink*, size_t )>	mDeviceArrivedCallback;
 		std::unordered_map<size_t, IDeckLink*>		mDevices;

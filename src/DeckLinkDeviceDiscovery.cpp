@@ -1,8 +1,12 @@
 #include "cinder/app/App.h"
 #include "cinder/Log.h"
+#include "cinder/FileWatcher.h"	
 
 #include "DeckLinkDeviceDiscovery.h"
 
+#include <vector>
+
+using namespace ci;
 using namespace media;
 
 IDeckLinkVideoConversion* DeckLinkDeviceDiscovery::sVideoConverter = NULL;
@@ -10,43 +14,43 @@ IDeckLinkVideoConversion* DeckLinkDeviceDiscovery::sVideoConverter = NULL;
 DeckLinkDeviceDiscovery::DeckLinkDeviceDiscovery( std::function<void( IDeckLink*, size_t )> deviceCallback )
 	: mDeviceArrivedCallback{ deviceCallback }, m_deckLinkDiscovery( NULL ), m_refCount( 1 )
 {
-	try {
-		auto vert = "#version 410 \n"
-			"in vec4 ciPosition; \n"
-			"in vec2 ciTexCoord0; \n"
-			"uniform mat4 ciModelViewProjection; \n"
-			"out vec2 vTexCoord0; \n"
-			"void main() { \n"
-			"	gl_Position = ciModelViewProjection * ciPosition; \n"
-			"	vTexCoord0 = ciTexCoord0; \n"
-			"} \n";
-		auto frag = "#version 410 \n"
-			"uniform sampler2D UYVYtex; \n"
-			"in vec2	vTexCoord0; \n"
-			"out vec4 fragColor; \n"
-			"void main( void ) { \n"
-			"	float tx, ty, Y, Cb, Cr, r, g, b; \n"
-			"	tx = vTexCoord0.x; \n"
-			"	ty = 1.0 - vTexCoord0.y; \n"
-			"	if( tx > 0.5 ) \n"
-			"		Y = texture( UYVYtex, vec2( tx, ty ) ).a; \n"
-			"	else \n"
-			"		Y = texture( UYVYtex, vec2( tx, ty ) ).g; \n"
-			"	Cb = texture( UYVYtex, vec2( tx, ty ) ).b; \n"
-			"	Cr = texture( UYVYtex, vec2( tx, ty ) ).r; \n"
-			"	Y = (Y * 256.0 - 16.0) / 219.0; \n"
-			"	Cb = (Cb * 256.0 - 16.0) / 224.0 - 0.5; \n"
-			"	Cr = (Cr * 256.0 - 16.0) / 224.0 - 0.5; \n"
-			"	r = Y + 1.5748 * Cr; \n"
-			"	g = Y - 0.1873 * Cb - 0.4681 * Cr; \n"
-			"	b = Y + 1.8556 * Cb; \n"
-			"	fragColor = vec4( r, g, b, 0.7 ); \n"
-			"} \n";
-		mGlslYUV2RGB = ci::gl::GlslProg::create( vert, frag );
-	}
-	catch( ci::gl::GlslProgCompileExc & exc ) {
-		CI_LOG_EXCEPTION( "", exc );
-	}
+	auto vert = "#version 150 \n"
+	"uniform mat4	ciModelViewProjection; \n"
+	"in vec4			ciPosition; \n"
+	"in vec2			ciTexCoord0; \n"
+	"out vec2		vTexCoord0; \n"
+	"void main() { \n"
+	"	vTexCoord0 = ciTexCoord0; \n"
+	"	gl_Position = ciModelViewProjection * ciPosition; \n"
+	"} \n";
+	auto frag = "#version 150 \n"
+	"uniform ivec2		ciWindowSize; \n"
+	"uniform sampler2D	UYVYtex; \n"
+	"in vec2				vTexCoord0; \n"
+	"out vec4 			fragColor; \n"
+	"void main() \n"
+	"{ \n"
+	"	vec2 coord = vec2( vTexCoord0.x, 1.0 - vTexCoord0.y ); \n"
+	"	ivec2 size = textureSize( UYVYtex, 0 ); \n"
+	"	vec4 uyvyColor = texture( UYVYtex, coord ); \n"
+	"	float Y, Cb, Cr; \n"
+	"	vec3 color; \n"
+	"	Cb = uyvyColor.x; \n"
+	"	Cr = uyvyColor.z; \n"
+	"	Y = mix( uyvyColor.y, uyvyColor.w, fract( 2.0 * coord.x * size.x ) ); \n"
+	"	float max = 255; \n"
+	"	float half = 0.5 * max; \n"
+	"	Y = 1.164 * ( clamp( Y * max, 0, 255 ) - 16 ); \n"
+	"	Cb = clamp( Cb * max, 0, 255 ) - half; \n"
+	"	Cr = clamp( Cr * max, 0, 255 ) - half; \n"
+	"	color.r = Y + 1.793 * Cr; \n"
+	"	color.g = Y - 0.534 * Cr - 0.213 * Cb; \n"
+	"	color.b = Y + 2.115 * Cb; \n"
+	"	color = color / vec3( max ); \n"
+	"	fragColor = vec4( color, 1.0 ); \n"
+	"} \n";
+	mGlslYUV2RGB = gl::GlslProg::create( vert, frag );
+	mGlslYUV2RGB->uniform( "UYVYtex", 0 );
 
 	if( CoCreateInstance( CLSID_CDeckLinkDiscovery, NULL, CLSCTX_ALL, IID_IDeckLinkDiscovery, (void**)&m_deckLinkDiscovery ) != S_OK ) {
 		m_deckLinkDiscovery = NULL;

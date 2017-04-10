@@ -97,8 +97,17 @@ namespace media {
 
 	class DeckLinkDevice;
 
-	typedef std::function<void( VideoFrameBGRA& frame )> ReadBGRAFrameCallback;
-	typedef std::function<void( IDeckLinkVideoInputFrame* frame )> ReadRawFrameCallback;
+	struct FrameEvent {
+		IDeckLinkVideoInputFrame * dataPointer = nullptr;
+		VideoFrameBGRA surfaceData;
+	private:
+		explicit FrameEvent( long width, long height ) : surfaceData{ width, height }, dataPointer{ nullptr } { }
+		explicit FrameEvent( IDeckLinkVideoInputFrame* frame ) : surfaceData{ 0, 0 }, dataPointer{ frame } { }
+
+		friend class DeckLinkInput;
+	};
+
+	typedef std::function<void( FrameEvent& )> FrameCallback;
 
 	typedef std::shared_ptr<class DeckLinkInput> DeckLinkInputRef;
 	class DeckLinkInput : public IDeckLinkInputCallback
@@ -107,16 +116,15 @@ namespace media {
 		DeckLinkInput( DeckLinkDevice * device );
 		~DeckLinkInput();
 
-		bool						start( BMDDisplayMode videoMode, ReadBGRAFrameCallback callback );
-		bool						start( BMDDisplayMode videoMode, ReadRawFrameCallback callback );
+		bool						start( BMDDisplayMode videoMode, bool useYUVTexture );
+		void						setUseYUVTexture( bool useYUVTexture ) { mUseYUVTexture = useYUVTexture; }
+		ci::signals::Signal<void( FrameEvent& )>& getFrameSignal() { return mSignalFrame; }
 		void						stop();
 		bool						isCapturing();
 
 		const glm::ivec2&			getResolution() const { return mResolution; }
 		std::vector<std::string>	getDisplayModeNames();
 	private:
-		bool						startImpl( BMDDisplayMode videoMode );
-
 		IDeckLinkInput *					mDecklinkInput;
 		std::vector<IDeckLinkDisplayMode*>	mModesList;
 
@@ -129,17 +137,17 @@ namespace media {
 		virtual ULONG				AddRef() override;
 		virtual ULONG				Release() override;
 
-
-		mutable std::mutex					mMutex;
 		std::atomic_bool					mCurrentlyCapturing;
 
-		ReadBGRAFrameCallback				mReadBRGACallback;
-		ReadRawFrameCallback				mReadRawCallback;
+		std::atomic_bool								mUseYUVTexture;
+		ci::signals::Signal<void( FrameEvent& )>		mSignalFrame;
 
 		DeckLinkDevice *					mDevice;
 		glm::ivec2							mResolution;
 
 		ULONG								m_refCount;
+
+		std::mutex							mFrameMutex;
 	};
 }
 

@@ -15,13 +15,13 @@ public:
 	BasicCaptureApp();
 	void update() override;
 	void draw() override;
-	void keyDown( KeyEvent event ) override;
 
 	void deviceArrived( IDeckLink * decklink, size_t index );
-	void frameArrived( media::VideoFrameBGRA& frame );
+	void frameArrived( media::FrameEvent& frameEvent );
 
 	media::DeckLinkDeviceDiscoveryRef	mDeviceDiscovery;
 	media::DeckLinkDeviceRef			mDevice;
+	ci::signals::Connection				mConnectionFrame;
 
 	std::mutex					mFrameLock;
 	SurfaceRef					mSurface;
@@ -31,6 +31,7 @@ BasicCaptureApp::BasicCaptureApp()
 	: mDeviceDiscovery{ new media::DeckLinkDeviceDiscovery{ std::bind( &BasicCaptureApp::deviceArrived, this, _1, _2 ) } }
 {
 	getWindow()->getSignalClose().connect( [this] {
+		mConnectionFrame.disconnect();
 		mDevice.reset();
 		mDeviceDiscovery.reset();
 	} );
@@ -46,8 +47,8 @@ void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
 
 	try {
 		mDevice = make_shared<media::DeckLinkDevice>( decklink );
-		media::ReadBGRAFrameCallback callback = std::bind( &BasicCaptureApp::frameArrived, this, _1 );
-		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30, callback );
+		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30, false );
+		mConnectionFrame = mDevice->getInput()->getFrameSignal().connect( std::bind( &BasicCaptureApp::frameArrived, this, _1 ) );
 		CI_LOG_I( "Starting sdi device: " << index );
 	}
 	catch( media::DecklinkExc& exc ) {
@@ -55,11 +56,11 @@ void BasicCaptureApp::deviceArrived( IDeckLink * decklink, size_t index )
 	}
 }
 
-void BasicCaptureApp::frameArrived( media::VideoFrameBGRA& frame )
+void BasicCaptureApp::frameArrived( media::FrameEvent& frameEvent )
 {
 	/* Note that both device and frame callbacks are triggered from DeckLink worker threads, hence the mutex here. */
 	std::lock_guard<std::mutex> lock{ mFrameLock };
-	frame.getSurface( mSurface );
+	frameEvent.surfaceData.getSurface( mSurface );
 }
 
 void BasicCaptureApp::update()
@@ -73,17 +74,6 @@ void BasicCaptureApp::draw()
 	std::lock_guard<std::mutex> lock{ mFrameLock };
 	if( mSurface ) {
 		gl::draw( gl::Texture2d::create( *mSurface ), mSurface->getBounds(), app::getWindowBounds() );
-	}
-}
-
-void BasicCaptureApp::keyDown(KeyEvent event)
-{
-	auto code = event.getCode();
-	if( code >= KeyEvent::KEY_1 && code <= KeyEvent::KEY_4 ) {
-		auto index = static_cast<size_t>( code - KeyEvent::KEY_1 );
-		mDevice.reset( new media::DeckLinkDevice{ mDeviceDiscovery->getDevice( index ) } );
-		auto callback = std::bind( &BasicCaptureApp::frameArrived, this, _1 );
-		mDevice->getInput()->start( BMDDisplayMode::bmdModeHD1080p30, callback );
 	}
 }
 

@@ -11,6 +11,7 @@ DeckLinkInput::DeckLinkInput( DeckLinkDevice * device )
 , mDecklinkInput( NULL )
 , m_refCount{ 1 }
 , mCurrentlyCapturing{ false }
+, mUseYUVTexture{ false }
 , mResolution{}
 {
 
@@ -41,31 +42,15 @@ DeckLinkInput::DeckLinkInput( DeckLinkDevice * device )
 
 DeckLinkInput::~DeckLinkInput()
 {
+	stop();
+
 	if( mDecklinkInput != NULL ) {
 		mDecklinkInput->Release();
 		mDecklinkInput = NULL;
 	}
 }
 
-bool DeckLinkInput::start( BMDDisplayMode videoMode, ReadBGRAFrameCallback callback )
-{
-	if( startImpl( videoMode ) ) {
-		mReadBRGACallback = callback;
-		return true;
-	}
-	return false;
-}
-
-bool DeckLinkInput::start( BMDDisplayMode videoMode, ReadRawFrameCallback callback )
-{
-	if( startImpl( videoMode ) ) {
-		mReadRawCallback = callback;
-		return true;
-	}
-	return false;
-}
-
-bool DeckLinkInput::startImpl( BMDDisplayMode videoMode )
+bool DeckLinkInput::start( BMDDisplayMode videoMode, bool useYUVTexture )
 {
 	if( mCurrentlyCapturing ) {
 		CI_LOG_W( "Already capturing, aborting start." );
@@ -93,6 +78,7 @@ bool DeckLinkInput::startImpl( BMDDisplayMode videoMode )
 	// Set capture callback
 	mDecklinkInput->SetCallback( this );
 	mCurrentlyCapturing = true;
+	mUseYUVTexture = useYUVTexture;
 	return true;
 }
 
@@ -100,7 +86,7 @@ void DeckLinkInput::stop()
 {
 	if( ! mCurrentlyCapturing )
 		return;
-
+		
 	if( mDecklinkInput != NULL ) {
 		mDecklinkInput->StopStreams();
 		mDecklinkInput->SetCallback( NULL );
@@ -154,15 +140,18 @@ HRESULT DeckLinkInput::VideoInputFrameArrived( IDeckLinkVideoInputFrame* frame, 
 	if( frame == NULL )
 		return S_OK;
 
+	std::lock_guard<std::mutex> lock( mFrameMutex );
+
 	if( (frame->GetFlags() & bmdFrameHasNoInputSource) == 0 ) {
 
-		if( mReadBRGACallback ) {
-			VideoFrameBGRA videoFrame{ frame->GetWidth(), frame->GetHeight() };
-			DeckLinkDeviceDiscovery::sVideoConverter->ConvertFrame( frame, &videoFrame );
-			mReadBRGACallback( videoFrame );
+		if( mUseYUVTexture ) {
+			FrameEvent frameEvent{ frame };
+			mSignalFrame.emit( frameEvent );
 		}
-		else if( mReadRawCallback ) {
-			mReadRawCallback( frame );
+		else {
+			FrameEvent frameEvent{ frame->GetWidth(), frame->GetHeight() };
+			DeckLinkDeviceDiscovery::sVideoConverter->ConvertFrame( frame, &frameEvent.surfaceData );
+			mSignalFrame.emit( frameEvent );
 		}
 
 		return S_OK;
