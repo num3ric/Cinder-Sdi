@@ -125,6 +125,7 @@ namespace media {
 		const glm::ivec2&			getResolution() const { return mResolution; }
 		std::vector<std::string>	getDisplayModeNames();
 	private:
+		glm::ivec2					getDisplayModeResolution( BMDDisplayMode mode );
 		IDeckLinkInput *					mDecklinkInput;
 		std::vector<IDeckLinkDisplayMode*>	mModesList;
 
