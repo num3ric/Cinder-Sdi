@@ -1,0 +1,88 @@
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Blocks">
+      <UniqueIdentifier>{C6EBE31D-2111-4EF1-9382-14C4F2079BC7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Blocks\Cinder-Sdi">
+      <UniqueIdentifier>{23A0083D-B0E0-4048-BF26-4D104EF39963}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Blocks\Cinder-Sdi\src">
+      <UniqueIdentifier>{DE9F4BE9-2314-491A-A0E2-FEAB3E03BA32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Blocks\Cinder-Sdi\include">
+      <UniqueIdentifier>{15AB8960-C37F-4B7A-8B73-920A0F824424}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\FastPboCaptureApp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\FastPboCaptureApp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClInclude Include="..\include\Resources.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\..\src\DecklinkDevice.cpp">
+      <Filter>Blocks\Cinder-Sdi\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\DeckLinkDeviceDiscovery.cpp">
+      <Filter>Blocks\Cinder-Sdi\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\DeckLinkInput.cpp">
+      <Filter>Blocks\Cinder-Sdi\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\DeckLinkOutput.cpp">
+      <Filter>Blocks\Cinder-Sdi\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\DeckLinkAPI_i.c">
+      <Filter>Blocks\Cinder-Sdi\src</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\..\include\DeckLinkAPI_h.h">
+      <Filter>Blocks\Cinder-Sdi\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\DeckLinkAPIVersion.h">
+      <Filter>Blocks\Cinder-Sdi\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\DecklinkDevice.h">
+      <Filter>Blocks\Cinder-Sdi\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\DeckLinkDeviceDiscovery.h">
+      <Filter>Blocks\Cinder-Sdi\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\DeckLinkInput.h">
+      <Filter>Blocks\Cinder-Sdi\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\DeckLinkOutput.h">
+      <Filter>Blocks\Cinder-Sdi\include</Filter>
+    </ClInclude>
+    <ClCompile Include="..\src\VideoDevice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\Resources.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\VideoDevice.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resources.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>
