@@ -46,6 +46,7 @@ namespace media {
 
 	class VideoFrameBGRA : public IDeckLinkVideoFrame {
 	public:
+		VideoFrameBGRA() = default;
 		VideoFrameBGRA( long width, long height )
 			: mWidth{ width }, mHeight{ height }
 		{
@@ -75,7 +76,8 @@ namespace media {
 		virtual ULONG			AddRef() { return 1; }
 		virtual ULONG			Release() { return 1; }
 	private:
-		long mWidth, mHeight;
+		long mWidth = 0;
+		long mHeight = 0;
 		std::vector<uint8_t> mData;
 	};
 
